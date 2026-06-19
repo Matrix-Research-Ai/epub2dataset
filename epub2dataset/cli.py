@@ -915,21 +915,12 @@ def make_example_instruction(
     tmpl = templates[template_idx % len(templates)]
     instruction = tmpl.format(source=source, chapter=chapter_title)
 
-    # Build Alpaca-style formatted response
-    response_parts = [
-        "### Instruction:",
-        instruction,
-        "### Input:",
-        f"Context: {source} — Chapter: {chapter_title}",
-        "### Response:",
-        text,
-    ]
-    formatted_response = "\n\n".join(response_parts)
-
+    # Build Alpaca-style format — ### markers are applied at training time,
+    # not stored in the data (ref [1] §5: "### Instruction:" is a prompt template)
     result = {
         "instruction": instruction,
         "input": f"Context: {source} — Chapter: {chapter_title}",
-        "response": formatted_response,
+        "response": text,
         "source": source,
         "chapter": chapter_title,
         "chapter_index": chapter_index,

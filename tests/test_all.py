@@ -364,9 +364,7 @@ def test_make_example_instruction():
     assert ex["instruction"] is not None
     assert ex["input"] is not None
     assert ex["response"] is not None
-    assert "### Instruction:" in ex["response"]
-    assert "### Input:" in ex["response"]
-    assert "### Response:" in ex["response"]
+    assert ex["response"] == "Test content here."
     assert ex["quality_score"] == 8.5
     assert ex["est_tokens"] > 0
 
