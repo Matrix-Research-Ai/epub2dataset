@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>epub2dataset → MicroChat-CPU Training Guide</title>
+    <meta name="description" content="Step-by-step guide to train an LLM on your curated EPUB dataset using MicroChat-CPU.">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #181825;
+            --border: #1e1e2e;
+            --text: #c8c8d4;
+            --text-dim: #6b6b80;
+            --accent: #7c5cfc;
+            --accent-dim: rgba(124, 92, 252, 0.12);
+            --green: #4ade80;
+            --blue: #60a5fa;
+            --orange: #fb923c;
+            --red: #f87171;
+            --font: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+        header {
+            text-align: center;
+            padding: 2.5rem 0 1.5rem;
+            position: relative;
+        }
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 400px; height: 400px;
+            background: radial-gradient(ellipse, var(--accent-dim) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            position: relative;
+            color: #fff;
+        }
+        .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 0 20px var(--accent-dim); }
+        .subtitle { margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-dim); max-width: 600px; margin-left: auto; margin-right: auto; }
+        .badges { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+        .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-family: var(--font); background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); text-decoration: none; }
+        .badge:hover { border-color: var(--accent); color: var(--accent); }
+        .badge-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+        .badge-dot.green { background: var(--green); }
+        .badge-dot.blue { background: var(--blue); }
+        .badge-dot.orange { background: var(--orange); }
+
+        section { margin: 2rem 0; }
+        .section-title { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .section-title .arrow { color: var(--accent); }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        .card-header {
+            padding: 0.9rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .card-body { padding: 1.25rem; }
+        .card-body p { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.75rem; }
+        .card-body p:last-child { margin-bottom: 0; }
+
+        .step { display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: flex-start; }
+        .step:last-child { margin-bottom: 0; }
+        .step-num {
+            flex-shrink: 0;
+            width: 24px; height: 24px;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            font-family: var(--font);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
+        }
+        .step-body { flex: 1; }
+        .step-body h4 { font-size: 0.85rem; color: #fff; margin-bottom: 0.25rem; }
+        .step-body p { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+
+        .code-block {
+            background: #0d0d15;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.1rem;
+            font-family: var(--font);
+            font-size: 0.78rem;
+            line-height: 1.7;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            position: relative;
+        }
+        .code-block .comment { color: var(--text-dim); }
+        .code-block .keyword { color: var(--accent); }
+        .code-block .cmd { color: #fff; }
+        .code-block .str { color: var(--green); }
+        .code-block .highlight { color: var(--orange); }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem; right: 0.5rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            border-radius: 4px;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.6rem;
+            cursor: pointer;
+            font-family: var(--font);
+            transition: all 0.15s;
+        }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .option-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0;
+        }
+        .option-tab {
+            padding: 0.7rem 1.2rem;
+            font-size: 0.82rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: var(--text-dim);
+            transition: all 0.15s;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            font-family: inherit;
+        }
+        .option-tab:hover { color: var(--text); }
+        .option-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .option-content { display: none; padding: 1.25rem; }
+        .option-content.active { display: block; }
+
+        .info-box {
+            background: var(--accent-dim);
+            border: 1px solid rgba(124, 92, 252, 0.2);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin: 0.75rem 0;
+        }
+        .info-box strong { color: var(--accent); }
+
+        .warn-box {
+            background: rgba(251, 146, 60, 0.08);
+            border: 1px solid rgba(251, 146, 60, 0.2);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin: 0.75rem 0;
+        }
+        .warn-box strong { color: var(--orange); }
+        .warn-box .title { color: var(--orange); font-weight: 600; }
+
+        hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 0.75rem 0; }
+        th { text-align: left; padding: 0.5rem 0.75rem; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--border); font-family: var(--font); font-size: 0.75rem; }
+        tr:hover td { background: var(--accent-dim); }
+
+        .dataset-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin: 0.75rem 0; }
+        .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; text-align: center; }
+        .stat-card .num { font-size: 1.3rem; font-weight: 700; font-family: var(--font); color: #fff; }
+        .stat-card .label { font-size: 0.65rem; color: var(--text-dim); margin-top: 0.15rem; }
+        .stat-card.accent .num { color: var(--accent); }
+        .stat-card.green .num { color: var(--green); }
+        .stat-card.blue .num { color: var(--blue); }
+        .stat-card.orange .num { color: var(--orange); }
+
+        footer { text-align: center; padding: 2rem 0; color: var(--text-dim); font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+        footer a { color: var(--accent); text-decoration: none; }
+
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            .option-tab { padding: 0.5rem 0.8rem; font-size: 0.75rem; }
+            .dataset-stats { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<header>
+    <div class="logo"><div class="logo-icon">🤖</div>epub2dataset → MicroChat-CPU</div>
+    <p class="subtitle">Step-by-step guide to train an LLM on your curated dataset using <a href="https://github.com/Matrix-Research-Ai/MicroChat-CPU" style="color:var(--accent);text-decoration:none;">MicroChat-CPU</a> — no GPU required.</p>
+    <div class="badges">
+        <a class="badge" href="https://github.com/Matrix-Research-Ai/epub2dataset"><span class="badge-dot orange"></span> epub2dataset</a>
+        <a class="badge" href="https://github.com/Matrix-Research-Ai/MicroChat-CPU"><span class="badge-dot blue"></span> MicroChat-CPU</a>
+        <a class="badge" href="./"><span class="badge-dot green"></span> ← Back to Demo</a>
+    </div>
+</header>
+
+<!-- Dataset Summary -->
+<section>
+    <div class="section-title"><span class="arrow">▸</span> Your Dataset</div>
+    <div class="card">
+        <div class="card-header">📊 Dataset Stats</div>
+        <div class="card-body">
+            <div class="dataset-stats" id="statsContainer">
+                <div class="stat-card accent"><div class="num" id="statExamples">—</div><div class="label">Examples</div></div>
+                <div class="stat-card green"><div class="num" id="statQuality">—</div><div class="label">Avg Quality</div></div>
+                <div class="stat-card blue"><div class="num" id="statTokens">—</div><div class="label">Tokens</div></div>
+                <div class="stat-card orange"><div class="num" id="statChars">—</div><div class="label">Characters</div></div>
+                <div class="stat-card accent"><div class="num" id="statChapters">—</div><div class="label">Chapters</div></div>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim);">Dataset is in <strong>Alpaca instruction format</strong> (instruction/input/response) with 10-dim quality filtering. Published to the <code>books/</code> directory after running the converter.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Prerequisites -->
+<section>
+    <div class="section-title"><span class="arrow">▸</span> Prerequisites</div>
+    <div class="card">
+        <div class="card-header">⚙️ What You Need</div>
+        <div class="card-body">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                    <h4>Clone MicroChat-CPU</h4>
+                    <p>If you haven't already, clone the repo:</p>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="cmd">git clone https://github.com/Matrix-Research-Ai/MicroChat-CPU.git</span>
+                        <br><span class="cmd">cd MicroChat-CPU</span>
+                    </div>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                    <h4>Install dependencies</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="comment"># Using uv (recommended)</span>
+                        <br><span class="cmd">uv sync --extra cpu</span>
+                        <br><span class="cmd">source .venv/bin/activate</span>
+                        <br><br>
+                        <span class="comment"># Or using pip</span>
+                        <br><span class="cmd">pip install torch numpy pyarrow tiktoken</span>
+                    </div>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                    <h4>Prepare the dataset</h4>
+                    <p>Convert your JSONL to Parquet (pretraining) or Chat JSONL (SFT). Run this in your epub2dataset directory:</p>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="cmd">python3 -c <span class="str">"</span></span>
+                        <br><span class="str">import json, pyarrow as pa, pyarrow.parquet as pq, os</span>
+                        <br><span class="str">lines = [json.loads(l) for l in open('dataset.jsonl')]</span>
+                        <br><span class="str">texts = [l['response'] for l in lines]</span>
+                        <br><span class="str">out = os.path.expanduser('~/epub2dataset_data')</span>
+                        <br><span class="str">os.makedirs(out, exist_ok=True)</span>
+                        <br><span class="str">pq.write_table(pa.table({'text': pa.array(texts)}), f'{out}/shard_00000.parquet')</span>
+                        <br><span class="str">val = texts[-len(texts)//20:]</span>
+                        <br><span class="str">pq.write_table(pa.table({'text': pa.array(val)}), f'{out}/shard_00001.parquet')</span>
+                        <br><span class="str"># Also create SFT format</span>
+                        <br><span class="str">with open(f'{out}/sft.jsonl', 'w') as f:</span>
+                        <br><span class="str">    for l in lines:</span>
+                        <br><span class="str">        chat = [{'role':'user','content':l['instruction']+'\\n'+l['input']},</span>
+                        <br><span class="str">                {'role':'assistant','content':l['response']}]</span>
+                        <br><span class="str">        f.write(json.dumps(chat, ensure_ascii=False)+'\\n')</span>
+                        <br><span class="str">print('Done:', out)</span>
+                        <br><span class="cmd">"</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Training Options -->
+<section>
+    <div class="section-title"><span class="arrow">▸</span> Training Options</div>
+    <div class="card">
+        <div class="option-tabs">
+            <button class="option-tab active" onclick="switchOption(this, 'optPretrain')">🔄 Pretraining</button>
+            <button class="option-tab" onclick="switchOption(this, 'optSFT')">💬 SFT (Chat)</button>
+        </div>
+
+        <!-- Pretraining Option -->
+        <div class="option-content active" id="optPretrain">
+            <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">Train a GPT model from scratch on the raw encyclopedia text (next-token prediction).</p>
+
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                    <h4>Copy data to MicroChat-CPU's data directory</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="comment"># Find the base_data directory</span>
+                        <br><span class="cmd">python3 -c <span class="str">"from nanochat.common import get_base_dir; print(get_base_dir())"</span></span>
+                        <br><br>
+                        <span class="comment"># Copy your dataset there</span>
+                        <br><span class="cmd">cp ~/epub2dataset_data/shard_00000.parquet /path/to/base_data_climbmix/</span>
+                        <br><span class="cmd">cp ~/epub2dataset_data/shard_00001.parquet /path/to/base_data_climbmix/</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="warn-box">
+                <strong class="title">⚠️ Important</strong><br>
+                The dataloader reads all parquet files except the last one as <strong>training</strong>, and the last one as <strong>validation</strong>.
+                Make sure the files are in the right order (training first, validation last).
+            </div>
+
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                    <h4>Run training</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="comment"># Single-node CPU training (GPT-2 scale, depth=4)</span>
+                        <br><span class="cmd">bash runs/runcpu_distributed.sh single --depth=4 --num-iterations=200 --max-seq-len=512 --device-batch-size=1 --total-batch-size=512</span>
+                        <br><br>
+                        <span class="comment"># Or run directly</span>
+                        <br><span class="cmd">python -m scripts.cpu_train --depth=4 --num-iterations=200 --max-seq-len=512 --device-batch-size=1 --total-batch-size=512 --eval-tokens=0 --core-metric-every=-1</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                    <h4>Chat with the trained model</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="cmd">python -m scripts.chat_cli --model-tag=d4</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>💡 Tip:</strong> With 2,435 examples at ~400 tokens each, that's ~1M total tokens.
+                A depth=4 model (40M params) will overfit quickly — use this as a <strong>test/smoke run</strong>.
+                For actual learning, consider combining with the full ClimbMix dataset.
+            </div>
+        </div>
+
+        <!-- SFT Option -->
+        <div class="option-content" id="optSFT">
+            <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">Fine-tune an existing pretrained checkpoint on the encyclopedia in chat format.</p>
+
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                    <h4>Edit chat_sft.py to add your dataset</h4>
+                    <p>Open <code>scripts/chat_sft.py</code> and add <code>CustomJSON</code> to the training mixture:</p>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="comment"># At the top of the file (already imported)</span>
+                        <br><span class="cmd">from tasks.customjson import CustomJSON</span>
+                        <br><br>
+                        <span class="comment"># Inside train_tasks list (around line 165), add as FIRST task:</span>
+                        <br><span class="cmd">train_tasks = [</span>
+                        <br>    <span class="highlight">CustomJSON(filepath=r"C:\Users\Admin\epub2dataset_data\encyclopedia_sft.jsonl"),</span>
+                        <br>    SmolTalk(split="train"),
+                        <br>    ...
+                        <br><span class="cmd">]</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="warn-box">
+                <strong class="title">⚠️ Windows path note</strong><br>
+                On Windows, use a raw string <code>r"C:\path\to\file.jsonl"</code> or forward slashes <code>"C:/Users/.../file.jsonl"</code>.
+                Backslashes without the <code>r</code> prefix will be treated as escape sequences.
+            </div>
+
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                    <h4>Run SFT</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="comment"># SFT with CPU (needs a pretrained checkpoint)</span>
+                        <br><span class="cmd">python -m scripts.chat_sft --device-type=cpu --num-iterations=100</span>
+                        <br><br>
+                        <span class="comment"># With specific model checkpoint</span>
+                        <br><span class="cmd">python -m scripts.chat_sft --device-type=cpu --model-tag=d12 --model-step=1000 --num-iterations=50</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                    <h4>Chat with the fine-tuned model</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                        <span class="cmd">python -m scripts.chat_cli --model-tag=chatsft/d12</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>💡 Note:</strong> SFT requires a <strong>pretrained checkpoint</strong> as a starting point.
+                If you haven't run pretraining yet, first train a base model or download one.
+                Run <code>python -m scripts.base_train --depth=4 --num-iterations=50</code> to create one.
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CLI Reference -->
+<section>
+    <div class="section-title"><span class="arrow">▸</span> Common CLI Flags</div>
+    <div class="card">
+        <div class="card-body" style="padding:0;">
+            <table>
+                <tr><th>Flag</th><th>Default</th><th>Description</th></tr>
+                <tr><td><code>--depth</code></td><td><code>4</code></td><td>Number of transformer layers (4≈40M, 8≈120M, 12≈300M params)</td></tr>
+                <tr><td><code>--num-iterations</code></td><td><code>50</code></td><td>Training steps (-1 = full epoch)</td></tr>
+                <tr><td><code>--max-seq-len</code></td><td><code>2048</code></td><td>Context window size</td></tr>
+                <tr><td><code>--device-batch-size</code></td><td><code>1</code></td><td>Samples per device per step (CPU needs 1–2)</td></tr>
+                <tr><td><code>--total-batch-size</code></td><td><code>524288</code></td><td>Total tokens per step (lower for CPU)</td></tr>
+                <tr><td><code>--synthetic</code></td><td><code>false</code></td><td>Use fake data for testing (no dataset needed)</td></tr>
+                <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>Validate setup without actual training</td></tr>
+                <tr><td><code>--profile</code></td><td><code>false</code></td><td>Run profiler to see where time is spent</td></tr>
+                <tr><td><code>--device-type</code></td><td><code>auto</code></td><td><code>cpu</code>, <code>cuda</code>, or <code>mps</code></td></tr>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Quick Smoke Test -->
+<section>
+    <div class="section-title"><span class="arrow">▸</span> Quick Smoke Test</div>
+    <div class="card">
+        <div class="card-body">
+            <p>Run this to verify MicroChat-CPU works on your machine before using your real dataset:</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyText(this)">📋 Copy</button>
+                <span class="cmd">cd ~/Downloads/MicroChat-CPU</span>
+                <br><span class="cmd">source .venv/bin/activate</span>
+                <br><span class="cmd">python -m scripts.cpu_train --synthetic --dry-run --depth=2</span>
+            </div>
+            <p style="font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem;">This downloads nothing and runs in 2 seconds. If it passes, everything is installed correctly.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Links -->
+<section>
+    <div class="section-title"><span class="arrow">▸</span> Resources</div>
+    <div class="card">
+        <div class="card-body">
+            <div class="step">
+                <div class="step-num">📄</div>
+                <div class="step-body">
+                    <h4><a href="https://github.com/Matrix-Research-Ai/MicroChat-CPU" style="color:var(--accent);text-decoration:none;" target="_blank">MicroChat-CPU README →</a></h4>
+                    <p>Full documentation, multi-node setup, WAN training, and network benchmarks.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">📖</div>
+                <div class="step-body">
+                    <h4><a href="https://github.com/Matrix-Research-Ai/MicroChat-CPU/blob/main/WALKTHROUGH.md" style="color:var(--accent);text-decoration:none;" target="_blank">Walkthrough →</a></h4>
+                    <p>Detailed walkthrough covering everything from installation to evaluation.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">🔬</div>
+                <div class="step-body">
+                    <h4><a href="https://github.com/Matrix-Research-Ai/MicroChat-CPU/blob/main/Research" style="color:var(--accent);text-decoration:none;" target="_blank">Research Papers →</a></h4>
+                    <p>Distributed CPU training optimizations: FSDP, gradient compression, top-k sparsification.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">📚</div>
+                <div class="step-body">
+                    <h4><a href="./" style="color:var(--accent);text-decoration:none;">epub2dataset Demo →</a></h4>
+                    <p>Back to the interactive converter to create more datasets.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <p><a href="https://github.com/Matrix-Research-Ai/epub2dataset">epub2dataset</a> &middot; <a href="https://github.com/Matrix-Research-Ai/MicroChat-CPU">MicroChat-CPU</a> &middot; <a href="https://github.com/Matrix-Research-Ai">Matrix Research AI</a></p>
+</footer>
+
+</div>
+
+<script>
+// Tab switching
+function switchOption(el, id) {
+    document.querySelectorAll('.option-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.option-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(id).classList.add('active');
+}
+
+// Copy button
+function copyText(btn) {
+    const block = btn.closest('.code-block');
+    const text = block.textContent.replace('📋 Copy', '').trim();
+    const orig = btn.textContent;
+
+    const doCopy = () => {
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(doCopy).catch(() => fallbackCopy(text, btn, orig));
+    } else {
+        fallbackCopy(text, btn, orig);
+    }
+}
+
+function fallbackCopy(text, btn, orig) {
+    const saved = document.activeElement;
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.setSelectionRange(0, text.length);
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (saved && saved.focus) saved.focus();
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+}
+</script>
+</body>
+</html>
