@@ -43,11 +43,19 @@ import logging
 import argparse
 import textwrap
 import multiprocessing
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from collections import defaultdict, Counter
 from datetime import datetime
 from typing import Optional
+
+# ProcessPoolExecutor may not be available in all environments (e.g. Pyodide/WASM)
+try:
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    HAS_PROCESS_POOL = True
+except (ImportError, ModuleNotFoundError):
+    HAS_PROCESS_POOL = False
+    ProcessPoolExecutor = None
+    as_completed = None
 
 try:
     from tqdm import tqdm
@@ -1130,7 +1138,7 @@ def run_pipeline(args):
 
     ep_iter = tqdm(epubs, desc="Extracting EPUBs", disable=not HAS_TQDM) if HAS_TQDM else epubs
 
-    if jobs > 1 and len(epubs) > 1:
+    if jobs > 1 and len(epubs) > 1 and HAS_PROCESS_POOL:
         # Parallel extraction (ref [4] §2 — CPU thread pool)
         n_workers = min(jobs, len(epubs), multiprocessing.cpu_count())
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
