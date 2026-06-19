@@ -151,12 +151,20 @@
         footer { text-align: center; padding: 2.5rem 0; color: var(--text-dim); font-size: 0.78rem; border-top: 1px solid var(--border); margin-top: 3rem; }
         footer a { color: var(--accent); text-decoration: none; }
         /* Debug log */
-        .debug-log { display: none; margin-top: 0.5rem; background: #0d0d15; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; max-height: 200px; overflow-y: auto; font-family: var(--font); font-size: 0.7rem; line-height: 1.5; color: var(--text-dim); }
+        .debug-log { display: none; margin-top: 0.5rem; background: #0d0d15; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; max-height: 200px; overflow-y: auto; font-family: var(--font); font-size: 0.7rem; line-height: 1.5; color: var(--text-dim); position: relative; }
         .debug-log.visible { display: block; }
         .debug-log .info { color: var(--blue); }
         .debug-log .ok { color: var(--green); }
         .debug-log .warn { color: var(--orange); }
         .debug-log .err { color: var(--red); }
+        .debug-copy-btn {
+            position: absolute; top: 0.5rem; right: 0.5rem;
+            background: var(--surface2); border: 1px solid var(--border);
+            color: var(--text-dim); border-radius: 4px; padding: 0.2rem 0.5rem;
+            font-size: 0.65rem; cursor: pointer; font-family: var(--font);
+            transition: all 0.15s;
+        }
+        .debug-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
         @media (max-width: 600px) {
             .container { padding: 1rem; }
             header { padding: 1.5rem 0; }
@@ -210,7 +218,10 @@
                         <button class="btn btn-secondary" id="btnDebug" onclick="toggleDebug()" style="font-size:0.75rem;">🐛 Debug</button>
                     </div>
 
-                    <div class="debug-log" id="debugLog"></div>
+                    <div class="debug-log" id="debugLog">
+                        <button class="debug-copy-btn" onclick="copyDebug()" title="Copy debug log">📋 Copy</button>
+                        <div id="debugContent"></div>
+                    </div>
 
                     <div class="results" id="results">
                         <div class="stat-grid" id="statsGrid"></div>
@@ -281,14 +292,30 @@ let pyodide = null, currentFile = null, currentResults = null, currentChunks = [
 function dbg(cls, msg) {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
     debugLines.push({cls, msg: line});
-    const el = document.getElementById('debugLog');
-    el.innerHTML = debugLines.map(d => `<div class="${d.cls}">${escHtml(d.msg)}</div>`).join('');
-    el.scrollTop = el.scrollHeight;
+    const el = document.getElementById('debugContent');
+    if (el) {
+        el.innerHTML = debugLines.map(d => `<div class="${d.cls}">${escHtml(d.msg)}</div>`).join('');
+        el.scrollTop = el.scrollHeight;
+    }
     console.log(`[epub2dataset] ${msg}`);
 }
 function toggleDebug() {
     const el = document.getElementById('debugLog');
     el.classList.toggle('visible');
+}
+function copyDebug() {
+    const text = debugLines.map(d => d.msg).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.debug-copy-btn');
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+    }).catch(() => {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+    });
 }
 
 // ── Pyodide Init ─────────────────────────────────────────
@@ -369,7 +396,7 @@ function clearAll() {
     document.getElementById('results').classList.remove('visible');
     document.getElementById('btnConvert').disabled = true;
     document.getElementById('btnClear').disabled = true;
-    debugLines = []; document.getElementById('debugLog').innerHTML = '';
+    debugLines = []; document.getElementById('debugContent').innerHTML = '';
     setStatus('idle', '✓ Ready — upload an EPUB');
 }
 
