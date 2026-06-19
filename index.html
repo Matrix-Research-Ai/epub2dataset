@@ -757,10 +757,14 @@ async function initPyodide() {
         // Fetch the cli.py from GitHub raw (with cache busting)
         const cacheBust = '?v=' + Date.now();
         const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/epub2dataset/cli.py' + cacheBust);
-        const cliSource = await resp.text();
-
-        // Execute in Pyodide
-        pyodide.runPython(cliSource);
+        let cliSource = await resp.text();
+        // Strip the if __name__ block — not needed in WASM
+        cliSource = cliSource.replace(
+            /if __name__ == ["']__main__["']:\s*sys\.exit\(main\(\)\)/,
+            '# __main__ suppressed for WASM'
+        );
+        // Execute in Pyodide (with __name__ set to prevent main() trigger)
+        pyodide.runPython('__name__ = "__not_main__"\n' + cliSource);
 
         // Expose core functions
         epub2dataset = {

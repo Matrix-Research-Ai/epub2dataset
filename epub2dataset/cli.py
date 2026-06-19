@@ -42,7 +42,13 @@ import hashlib
 import logging
 import argparse
 import textwrap
-import multiprocessing
+# multiprocessing may not be available in Pyodide/WASM
+try:
+    import multiprocessing
+    HAS_MULTIPROCESSING = True
+except (ImportError, ModuleNotFoundError):
+    HAS_MULTIPROCESSING = False
+    multiprocessing = None
 from pathlib import Path
 from collections import defaultdict, Counter
 from datetime import datetime
@@ -1655,7 +1661,7 @@ def main():
                         help="Streaming mode (process without loading all into RAM)")
 
     # v4 additions
-    default_jobs = multiprocessing.cpu_count()
+    default_jobs = multiprocessing.cpu_count() if HAS_MULTIPROCESSING else 1
     parser.add_argument("--jobs", type=int, default=default_jobs,
                         help=f"Parallel extraction workers (default: {default_jobs}, ref [4] §2 — CPU thread pool)")
     parser.add_argument("--config", type=str, default=None,
