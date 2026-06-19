@@ -564,9 +564,9 @@ for idx, item in enumerate(items):
     text = html_to_text(raw)
     _d.append(f"    after html_to_text: {len(text)} chars")
     # Strip book-level boilerplate from encyclopedia entries
-    _lines = text.split('\n')
+    _lines = text.split('\\n')
     if len(_lines) > 12 and _lines[0].strip() == 'Claude Sammut' and _lines[3].strip() == 'Geoffrey I. Webb':
-        text = '\n'.join(_lines[13:])
+        text = '\\n'.join(_lines[13:])
         _d.append(f"    stripped book boilerplate ({len(text)} chars remain)")
     if not text.strip():
         _d.append(f"    SKIP: empty after cleaning"); continue
