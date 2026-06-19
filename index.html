@@ -466,7 +466,7 @@ _d.append(f"Total: {len(chapters)} chapters")
 # 4. Classify
 for ch in chapters:
     ch['content_type'] = classify_content(ch['text'])
-_d.append(f"Domains: {{c['content_type'] for c in chapters}}")
+_d.append(f"Domains: { {ch['content_type'] for ch in chapters} }")
 
 # 5. Chunk + score
 all_chunks = []
