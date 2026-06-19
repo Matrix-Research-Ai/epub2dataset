@@ -17,13 +17,13 @@ build/
 .DS_Store
 Thumbs.db
 
-# Project specific
-test_*.jsonl
-test_*.epub
-test_*.parquet
-test_*.arrow
-test_*.json
-*_report.json
+# Project specific (root level only)
+/test_*.jsonl
+/test_*.epub
+/test_*.parquet
+/test_*.arrow
+/test_*.json
+/*_report.json
 
 # Virtual environments
 venv/
