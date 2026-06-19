@@ -754,8 +754,9 @@ async function initPyodide() {
 
         document.getElementById('initText').textContent = 'Loading epub2dataset engine...';
 
-        // Fetch the cli.py from GitHub raw
-        const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/epub2dataset/cli.py');
+        // Fetch the cli.py from GitHub raw (with cache busting)
+        const cacheBust = '?v=' + Date.now();
+        const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/epub2dataset/cli.py' + cacheBust);
         const cliSource = await resp.text();
 
         // Execute in Pyodide
