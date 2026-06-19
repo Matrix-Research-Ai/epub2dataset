@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-epub2dataset v4 — Research-Grade EPUB to LLM Training Dataset Converter
+epub2dataset v5 — Research-Grade EPUB to LLM Training Dataset Converter
 =======================================================================
 
 Implements the full **Curate-and-Focus Methodology** from 4 research papers:
@@ -76,6 +76,7 @@ log = logging.getLogger("epub2dataset")
 QUALITY_DIMENSIONS = [
     "completeness", "clarity", "coherence", "density",
     "structure", "length", "formatting", "uniqueness",
+    "readability", "naturalness",
 ]
 QUALITY_THRESHOLD = 6.0
 DEFAULT_MIN_CHARS = 300
@@ -183,6 +184,84 @@ def entropy(text: str) -> float:
     total = len(text)
     ent = -sum((c/total) * math.log2(c/total) for c in counts.values())
     return min(ent / 7.0, 1.0)
+
+
+def readability_flesch(text: str) -> float:
+    """
+    Normalized Flesch Reading Ease (0-1).
+    Higher = more readable. Uses syllable approximation.
+    (ref [1] §3 — clarity/readability in quality rubric)
+    """
+    sents = re.split(r'[.!?]+', text)
+    sents = [s.strip() for s in sents if len(s.strip()) > 2]
+    if not sents:
+        return 0.5
+    words = re.findall(r'\w+', text)
+    if not words:
+        return 0.5
+    total_words = len(words)
+    total_sents = len(sents)
+    # Approximate syllables: count vowel groups
+    total_syllables = 0
+    for w in words:
+        w = w.lower()
+        syllables = len(re.findall(r'[aeiouy]+', w))
+        if syllables == 0:
+            syllables = 1
+        total_syllables += syllables
+    # Flesch Reading Ease = 206.835 - 1.015*(words/sent) - 84.6*(syllables/words)
+    if total_sents == 0 or total_words == 0:
+        return 0.5
+    fre = 206.835 - 1.015 * (total_words / total_sents) - 84.6 * (total_syllables / total_words)
+    # Normalize: FRE typically ranges 0-100, clip to 0-100 then divide by 100
+    fre = max(0, min(100, fre))
+    return fre / 100.0
+
+
+def ai_naturalness_score(text: str) -> float:
+    """
+    Score text naturalness vs AI-generated patterns.
+    AI text tends to have: uniform sentence lengths, low burstiness,
+    overuse of certain transition words, and low variance in structure.
+    Higher score = more natural (less likely AI-generated).
+    (ref [1] §3 — "AI-generated content detection" in quality rubric)
+    """
+    sents = re.split(r'[.!?]+', text)
+    sents = [s.strip() for s in sents if len(s.strip()) > 5]
+    if len(sents) < 4:
+        return 0.7  # neutral for short texts
+
+    # 1. Burstiness: variance in sentence lengths (AI text has low variance)
+    lengths = [len(s.split()) for s in sents]
+    mean_len = sum(lengths) / len(lengths)
+    variance = sum((l - mean_len)**2 for l in lengths) / len(lengths)
+    std = math.sqrt(variance) if variance > 0 else 1
+    # High std = more natural (human writing has bursty sentence lengths)
+    burstiness = min(std / 8.0, 1.0)
+
+    # 2. Transition word diversity (AI text overuses certain transitions)
+    transition_words = ['however', 'therefore', 'furthermore', 'moreover',
+                        'additionally', 'consequently', 'nevertheless',
+                        'in addition', 'on the other hand', 'as a result',
+                        'importantly', 'notably', 'specifically']
+    text_lower = text.lower()
+    transition_count = sum(1 for tw in transition_words if tw in text_lower)
+    # Too many transitions = AI-like. 0-2 is natural, >5 is suspicious
+    trans_score = max(0, 1.0 - transition_count / 8.0)
+
+    # 3. Sentence start diversity (AI text repeats sentence starters)
+    starters = [s.strip().split()[0].lower() if s.strip().split() else ''
+                for s in sents]
+    starters = [s for s in starters if s]
+    if starters:
+        unique_starters = len(set(starters))
+        starter_diversity = unique_starters / max(len(starters), 1)
+    else:
+        starter_diversity = 0.5
+
+    # Combine: burstiness (0.4) + transition score (0.3) + starter diversity (0.3)
+    score = 0.4 * burstiness + 0.3 * trans_score + 0.3 * starter_diversity
+    return min(max(score, 0.0), 1.0)
 
 
 def estimate_tokens(text: str) -> int:
@@ -345,6 +424,10 @@ def quality_score_8d(text: str, min_chars: int, max_chars: int) -> tuple[float, 
     lex_div = lexical_diversity(text)
     ent = entropy(text)
     uniqueness = 0.5 * lex_div + 0.5 * ent
+    # 9. Readability (Flesch Reading Ease normalized)
+    readability = readability_flesch(text)
+    # 10. Naturalness (AI-generated text detection, ref [1] §3)
+    naturalness = ai_naturalness_score(text)
 
     dims = {
         "completeness": round(completeness * 10, 1),
@@ -355,11 +438,14 @@ def quality_score_8d(text: str, min_chars: int, max_chars: int) -> tuple[float, 
         "length": round(length_score * 10, 1),
         "formatting": round(formatting * 10, 1),
         "uniqueness": round(uniqueness * 10, 1),
+        "readability": round(readability * 10, 1),
+        "naturalness": round(naturalness * 10, 1),
     }
     weights = {
-        "completeness": 0.15, "clarity": 0.15, "coherence": 0.10,
-        "density": 0.15, "structure": 0.10, "length": 0.10,
-        "formatting": 0.10, "uniqueness": 0.15,
+        "completeness": 0.12, "clarity": 0.12, "coherence": 0.08,
+        "density": 0.12, "structure": 0.08, "length": 0.08,
+        "formatting": 0.08, "uniqueness": 0.12,
+        "readability": 0.10, "naturalness": 0.10,
     }
     final = sum(dims[k] * weights[k] for k in dims)
     return round(final, 2), dims
@@ -992,6 +1078,31 @@ def run_pipeline(args):
     for dtype, count in domain_dist.most_common():
         log.info(f"    {dtype:12s}: {count}")
 
+    # ── Phase 3b: Chapter Merging ─────────────────────────────────
+    # Merge consecutive short chapters from the same source
+    # (ref [1] — "a smaller, meticulously curated dataset can yield better results")
+    merge_count = 0
+    merged_chapters = []
+    buffer = None
+    for ch in all_chapters:
+        if buffer is None:
+            buffer = dict(ch)
+            continue
+        # Merge if current chapter is short (< 500 chars) and from same source
+        if len(ch['text']) < 500 and ch['source'] == buffer['source']:
+            buffer['text'] += '\n\n' + ch['text']
+            buffer['chapter_title'] += ' + ' + ch['chapter_title']
+            buffer['chapter_index'] = min(buffer['chapter_index'], ch['chapter_index'])
+            merge_count += 1
+        else:
+            merged_chapters.append(buffer)
+            buffer = dict(ch)
+    if buffer is not None:
+        merged_chapters.append(buffer)
+    if merge_count > 0:
+        log.info(f"  Chapter merging: merged {merge_count} short chapters")
+    all_chapters = merged_chapters
+
     # ── Phase 4: Chunk ────────────────────────────────────────────
     raw_chunks = []
     for ch in all_chapters:
@@ -1212,6 +1323,16 @@ def run_pipeline(args):
         "total_est_tokens": total_tokens,
         "content_type_distribution": dict(final_domain_dist),
         "pii_detected": dict(total_pii) if total_pii else None,
+        "chapters_merged": merge_count,
+        "per_source_quality": dict(Counter(
+            c['source'] for c in scored
+        ).most_common()),
+        "avg_quality_by_source": {
+            src: round(sum(c['quality'] for c in scored if c['source'] == src) / max(
+                sum(1 for c in scored if c['source'] == src), 1
+            ), 2)
+            for src in set(c['source'] for c in scored)
+        } if scored else {},
         "output_format": fmt,
         "output_style": style,
         "shards": shard_count,
@@ -1427,6 +1548,13 @@ def main():
     if args.output is None:
         ext = {'jsonl': 'jsonl', 'json': 'json', 'parquet': 'parquet', 'arrow': 'arrow'}[args.format]
         args.output = f"dataset.{ext}"
+
+    # Auto-detect format from file extension
+    ext_map = {'.jsonl': 'jsonl', '.json': 'json', '.parquet': 'parquet', '.arrow': 'arrow'}
+    output_ext = os.path.splitext(args.output)[1].lower()
+    if output_ext in ext_map and args.format == 'jsonl':
+        # Only auto-detect if user didn't explicitly set --format
+        args.format = ext_map[output_ext]
 
     if not os.path.isdir(args.input_dir):
         log.error(f"Directory not found: {args.input_dir}")
