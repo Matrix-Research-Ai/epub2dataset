@@ -577,6 +577,13 @@ for idx, item in enumerate(items):
         _d.append(f"    SKIP: front matter: {title}"); continue
     chapters.append({"index":idx+1,"title":title,"text":text,"char_count":len(text)})
     _d.append(f"    OK: '{title}' ({len(text)} chars)")
+    if idx % 15 == 0 and idx > 0:
+        _d.append(f"Progress: {idx}/{len(items)} items, {len(chapters)} chapters so far")
+        if convert_state.cancelled: raise Exception("Cancelled")
+        while convert_state.paused:
+            await asyncio.sleep(0.2)
+            if convert_state.cancelled: raise Exception("Cancelled")
+        await asyncio.sleep(0)
 _d.append(f"Total: {len(chapters)} chapters")
 # Classify
 for ch in chapters:
