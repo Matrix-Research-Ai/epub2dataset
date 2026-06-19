@@ -452,12 +452,12 @@ from ebooklib import epub, ITEM_DOCUMENT
 
 _d = []
 opts = {
-    "include_front": ${includeFront},
-    "lightweight": ${lightweight},
-    "no_dedup": ${noDedup},
-    "redact_pii": ${redactPII},
-    "do_pack": ${doPack},
-    "split_domain": ${splitDomain},
+    "include_front": ${includeFront ? 'True' : 'False'},
+    "lightweight": ${lightweight ? 'True' : 'False'},
+    "no_dedup": ${noDedup ? 'True' : 'False'},
+    "redact_pii": ${redactPII ? 'True' : 'False'},
+    "do_pack": ${doPack ? 'True' : 'False'},
+    "split_domain": ${splitDomain ? 'True' : 'False'},
     "max_chars": ${maxChars},
     "style": "${style}",
 }
