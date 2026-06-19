@@ -623,14 +623,54 @@ def extract_epub(epub_path: str) -> list[dict]:
 
     return chapters
 
-
 def html_to_text(html: str) -> str:
-    from bs4 import BeautifulSoup
+    """HTML to clean text with smart list handling."""
+    from bs4 import BeautifulSoup, Tag, NavigableString
     soup = BeautifulSoup(html, 'html.parser')
     for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'aside']):
         tag.decompose()
+
+    # Smart list handling: convert <ul>/<ol> to indented bullet points
+    for lst in soup.find_all(['ul', 'ol']):
+        lines = []
+        for i, li in enumerate(lst.find_all('li', recursive=False)):
+            prefix = '  * ' if lst.name == 'ul' else f'  {i+1}. '
+            text = li.get_text(separator=' ', strip=True)
+            # Handle nested lists
+            nested = li.find(['ul', 'ol'])
+            if nested:
+                nested_text = _extract_nested_list(nested, 4)
+                text = text.replace(nested.get_text(separator=' ', strip=True), '').strip()
+                lines.append(prefix + text)
+                lines.append(nested_text)
+            else:
+                lines.append(prefix + text)
+        # Replace the list with cleaned text
+        lst_tag = soup.new_tag('div')
+        lst_tag.string = '\n'.join(lines)
+        lst.replace_with(lst_tag)
+
     text = soup.get_text(separator='\n')
     return normalize_text(text)
+
+
+def _extract_nested_list(lst, indent=4):
+    """Recursively extract nested list items with indentation."""
+    from bs4 import Tag
+    prefix = ' ' * indent
+    lines = []
+    for i, li in enumerate(lst.find_all('li', recursive=False)):
+        p = f'{prefix}- ' if lst.name == 'ul' else f'{prefix}{i+1}. '
+        text = li.get_text(separator=' ', strip=True)
+        nested = li.find(['ul', 'ol'])
+        if nested:
+            nested_text = _extract_nested_list(nested, indent + 2)
+            text = text.replace(nested.get_text(separator=' ', strip=True), '').strip()
+            lines.append(p + text)
+            lines.append(nested_text)
+        else:
+            lines.append(p + text)
+    return '\n'.join(lines)
 
 
 # =========================================================================
@@ -1116,7 +1156,11 @@ def run_pipeline(args):
     start_time = datetime.now()
 
     # ── Phase 1: Scan ──────────────────────────────────────────────
-    epubs = sorted(Path(input_dir).rglob('*.epub'))
+    no_recursive = getattr(args, 'no_recursive', False)
+    if no_recursive:
+        epubs = sorted(Path(input_dir).glob('*.epub'))
+    else:
+        epubs = sorted(Path(input_dir).rglob('*.epub'))
     seen = set()
     unique = []
     for ep in epubs:
@@ -1689,7 +1733,26 @@ def main():
                         help="Merge multiple JSONL files with dedup (use glob: 'runs/*.jsonl')")
     parser.add_argument("--license", type=str, default=None,
                         help="Filter EPUBs by license type (e.g. 'cc-by', 'public domain') (ref [1] §2)")
+    parser.add_argument("--no-recursive", action="store_true",
+                        help="Non-recursive scan: only top-level .epub files (default: recursive)")
+
+    # Parse args
     args = parser.parse_args()
+
+    # Interactive mode when run with no arguments
+    if len(sys.argv) == 1:
+        print("\n📚 epub2dataset — Interactive Mode")
+        print("=" * 40)
+        args.input_dir = input("  Input directory (path to EPUBs): ").strip() or "."
+        recipe = input("  Recipe [balanced/strict/lenient]: ").strip() or "balanced"
+        if recipe in RECIPES: args.recipe = recipe
+        style = input("  Style [instruction/completion/chat]: ").strip() or "instruction"
+        if style in ('instruction','completion','chat'): args.style = style
+        out = input("  Output path [dataset.jsonl]: ").strip() or "dataset.jsonl"
+        args.output = out
+        fmt = input("  Format [jsonl/json/parquet/arrow]: ").strip() or "jsonl"
+        if fmt in ('jsonl','json','parquet','arrow'): args.format = fmt
+        print()
 
     if args.output is None:
         ext = {'jsonl': 'jsonl', 'json': 'json', 'parquet': 'parquet', 'arrow': 'arrow'}[args.format]
@@ -1709,6 +1772,11 @@ def main():
     if not os.path.isdir(args.input_dir) and not is_validate and not is_merge:
         log.error(f"Directory not found: {args.input_dir}")
         return 1
+
+    # Create output directory if needed
+    out_dir = os.path.dirname(args.output)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     # Save config if requested
     if args.save_config:
