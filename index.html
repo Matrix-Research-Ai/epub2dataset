@@ -635,7 +635,7 @@ for i, ct in enumerate(ck):
     pii = detect_pii(ct)
     if opts['redact_pii'] and pii:
         ct = redact_pii(ct)
-    out.append({"chapter":ch['title'],"content_type":ch['content_type'],"text":ct[:300],"char_count":len(ct),"est_tokens":estimate_tokens(ct),"quality":score,"quality_dims":dims,"pii":list(pii.keys()) if pii else []})
+    out.append({"chapter":ch['title'],"content_type":ch['content_type'],"text":ct,"char_count":len(ct),"est_tokens":estimate_tokens(ct),"quality":score,"quality_dims":dims,"pii":list(pii.keys()) if pii else []})
 json.dumps({"chunks":out,"count":len(out)})
 `);
             const parsed = JSON.parse(chunkResult);
@@ -644,6 +644,18 @@ json.dumps({"chunks":out,"count":len(out)})
             setProgress(chapterPct);
             dbg('info', `    → ${parsed.count} chunk(s)`);
         }
+
+        // Filter out low-quality chunks matching the selected recipe
+        const recipeThresholds = { strict: 7.5, balanced: 6.0, lenient: 4.0 };
+        const threshold = recipeThresholds[recipe] || 6.0;
+        const before = allChunks.length;
+        allChunks = allChunks.filter(c => {
+            if (c.quality === 0 && c.quality_dims && c.quality_dims._reject) return false;
+            return c.quality >= threshold;
+        });
+        const after = allChunks.length;
+        const filtered = before - after;
+        dbg('info', `Quality filter: ${before} → ${after} chunks (removed ${filtered} below ${threshold})`);
 
         setProgress(80);
         setStatus('loading', '⏳ [4/5] Formatting examples...');
