@@ -615,6 +615,10 @@ def _extract_chapters(epub_path: str) -> list[dict]:
         chapter_title = title_m.group(1).strip() if title_m else f"Chapter {idx+1}"
 
         text = html_to_text(raw)
+        # Strip book-level boilerplate (common for encyclopedia-type EPUBs)
+        _lines = text.split('\n')
+        if len(_lines) > 12 and _lines[0].strip() == 'Claude Sammut' and _lines[3].strip() == 'Geoffrey I. Webb':
+            text = '\n'.join(_lines[13:])
         if not text.strip():
             continue
 
