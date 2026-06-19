@@ -417,18 +417,32 @@ function setStatus(cls, msg) {
     bar.className = 'status-bar ' + cls;
     document.getElementById('statusText').textContent = msg;
 }
+function setProgress(pct) {
+    let el = document.getElementById('progressBar');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'progressBar';
+        el.style.cssText = 'height:3px;background:var(--surface2);border-radius:2px;margin:0.5rem 0;overflow:hidden;';
+        el.innerHTML = '<div id="progressFill" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.3s;"></div>';
+        document.getElementById('statusBar').after(el);
+    }
+    document.getElementById('progressFill').style.width = pct + '%';
+}
 
 // ── Convert ──────────────────────────────────────────────
 async function convert() {
     if (!currentFile || !pyodide) return;
-    setStatus('loading', '⏳ Reading EPUB...');
+    // Auto-open debug
+    document.getElementById('debugLog').classList.add('visible');
+    setProgress(0);
+    setStatus('loading', '⏳ [1/5] Reading EPUB file...');
     document.getElementById('results').classList.remove('visible');
     debugLines = [];
+    document.getElementById('debugContent').innerHTML = '';
 
     const style = document.getElementById('styleSelect').value;
     const recipe = document.getElementById('recipeSelect').value;
     const fmt = document.getElementById('formatSelect').value;
-    const ext = fmt === 'tfrecord' ? 'tfrecord' : fmt;
     const maxChars = parseInt(document.getElementById('maxTokens').value) || 2048;
     const noDedup = document.getElementById('chkNoDedup').checked;
     const lightweight = document.getElementById('chkLightweight').checked;
@@ -442,48 +456,30 @@ async function convert() {
         const bytes = new Uint8Array(ab);
         pyodide.FS.writeFile('/tmp/input.epub', bytes);
         dbg('ok', `Wrote ${bytes.length} bytes to virtual FS`);
+        setProgress(10);
 
-        setStatus('loading', '⏳ Extracting + scoring...');
-
-        // ── Run full pipeline in one Python call ──
-        const resultJson = pyodide.runPython(`
+        setStatus('loading', '⏳ [2/5] Extracting chapters & metadata...');
+        // Step 1: Read + extract chapters
+        let resultJson = pyodide.runPython(`
 import json, sys
 from ebooklib import epub, ITEM_DOCUMENT
-
 _d = []
-opts = {
-    "include_front": ${includeFront ? 'True' : 'False'},
-    "lightweight": ${lightweight ? 'True' : 'False'},
-    "no_dedup": ${noDedup ? 'True' : 'False'},
-    "redact_pii": ${redactPII ? 'True' : 'False'},
-    "do_pack": ${doPack ? 'True' : 'False'},
-    "split_domain": ${splitDomain ? 'True' : 'False'},
-    "max_chars": ${maxChars},
-    "style": "${style}",
-}
-
-# 1. Read EPUB
 try:
     book = epub.read_epub('/tmp/input.epub')
     _d.append("EPUB loaded OK")
 except Exception as e:
     _d.append(f"EPUB load FAILED: {e}")
     raise
-
-# 2. Metadata
-meta = {"author": "", "publisher": "", "language": ""}
-if hasattr(book, 'get_metadata'):
-    for k, tag in [('author','creator'),('publisher','publisher'),('language','language')]:
+meta = {"author":"","publisher":"","language":""}
+if hasattr(book,'get_metadata'):
+    for k,tag in [('author','creator'),('publisher','publisher'),('language','language')]:
         try:
-            dc = book.get_metadata('DC', tag)
+            dc = book.get_metadata('DC',tag)
             if dc: meta[k] = str(dc[0][0])
         except: pass
 _d.append(f"Metadata: {meta}")
-
-# 3. Extract chapters
 items = list(book.get_items_of_type(ITEM_DOCUMENT))
 _d.append(f"Found {len(items)} document items")
-
 chapters = []
 for idx, item in enumerate(items):
     name = item.get_name() or "?"
@@ -494,118 +490,96 @@ for idx, item in enumerate(items):
     except:
         try:
             raw = item.get_body_content().decode('latin-1', errors='replace')
-            _d.append(f"    decoded latin-1: {len(raw)} bytes")
         except:
-            _d.append(f"    FAILED to decode")
-            continue
-
+            _d.append(f"    FAILED to decode"); continue
     text = html_to_text(raw)
     _d.append(f"    after html_to_text: {len(text)} chars")
     if not text.strip():
-        _d.append(f"    SKIP: empty after cleaning")
-        continue
-
+        _d.append(f"    SKIP: empty after cleaning"); continue
     import re
     title_m = re.search(r'<title[^>]*>(.*?)</title>', raw, re.IGNORECASE | re.DOTALL)
     title = title_m.group(1).strip() if title_m else f"Chapter {idx+1}"
-
-    if not opts["include_front"] and is_front_matter(title, text):
-        _d.append(f"    SKIP: front matter: {title}")
-        continue
-
-    chapters.append({"index": idx+1, "title": title, "text": text, "char_count": len(text)})
+    if not (${includeFront ? 'True' : 'False'}) and is_front_matter(title, text):
+        _d.append(f"    SKIP: front matter: {title}"); continue
+    chapters.append({"index":idx+1,"title":title,"text":text,"char_count":len(text)})
     _d.append(f"    OK: '{title}' ({len(text)} chars)")
-
 _d.append(f"Total: {len(chapters)} chapters")
-
-# 4. Classify
+# Classify
 for ch in chapters:
     ch['content_type'] = classify_content(ch['text'])
 _d.append(f"Domains: { {ch['content_type'] for ch in chapters} }")
+json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
+`);
+        let step1 = JSON.parse(resultJson);
+        step1.debug.forEach(l => {
+            if (l.includes('FAILED')||l.includes('SKIP')) dbg('warn', l);
+            else if (l.includes('OK')) dbg('ok', l);
+            else dbg('info', l);
+        });
+        if (!step1.chapters || step1.chapters.length === 0) {
+            setStatus('error', '✗ No chapters extracted. See debug panel.');
+            dbg('err', 'Zero chapters extracted');
+            return;
+        }
+        setProgress(40);
+        setStatus('loading', `⏳ [3/5] Chunking & scoring ${step1.chapters.length} chapters...`);
 
-# 5. Chunk + score
-all_chunks = []
+        // Step 2: Chunk + score + format
+        const chaptersJson = JSON.stringify(step1.chapters);
+        resultJson = pyodide.runPython(`
+import json
+chapters = json.loads('${chaptersJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
+opts = {"include_front":${includeFront ? 'True' : 'False'},"lightweight":${lightweight ? 'True' : 'False'},"no_dedup":${noDedup ? 'True' : 'False'},"redact_pii":${redactPII ? 'True' : 'False'},"do_pack":${doPack ? 'True' : 'False'},"split_domain":${splitDomain ? 'True' : 'False'},"max_chars":${maxChars},"style":"${style}"}
+_d=[]
+all_chunks=[]
 for ch in chapters:
-    ck = chunk_semantic(ch['text'], max_chars=opts["max_chars"], overlap=256)
+    ck = chunk_semantic(ch['text'], max_chars=opts['max_chars'], overlap=256)
     _d.append(f"  {ch['title']}: {len(ck)} chunk(s)")
-    for i, ct in enumerate(ck):
-        if opts["lightweight"]:
+    for ct in ck:
+        if opts['lightweight']:
             score, dims = 5.0, {}
         else:
-            score, dims = quality_score_8d(ct, 100, opts["max_chars"])
+            score, dims = quality_score_8d(ct, 100, opts['max_chars'])
         pii = detect_pii(ct)
-        if opts["redact_pii"] and pii:
+        if opts['redact_pii'] and pii:
             ct = redact_pii(ct)
-        all_chunks.append({
-            "chapter": ch['title'], "content_type": ch['content_type'],
-            "text": ct[:300], "char_count": len(ct),
-            "est_tokens": estimate_tokens(ct),
-            "quality": score, "quality_dims": dims,
-            "pii": list(pii.keys()) if pii else [],
-        })
+        all_chunks.append({"chapter":ch['title'],"content_type":ch['content_type'],"text":ct[:300],"char_count":len(ct),"est_tokens":estimate_tokens(ct),"quality":score,"quality_dims":dims,"pii":list(pii.keys()) if pii else []})
 _d.append(f"Total chunks: {len(all_chunks)}")
-
-# 6. Build all examples
-all_examples = []
+# Build examples
+all_examples=[]
 for c in all_chunks:
-    st = opts["style"]
-    kw = dict(text=c['text'], source='input.epub', chapter_title=c['chapter'],
-              chapter_index=1, quality=c['quality'], content_type=c['content_type'],
-              est_tokens=c['est_tokens'])
-    if st == 'instruction':
-        e = make_example_instruction(**kw, total_chunks=1, template_idx=0,
-            dims=c['quality_dims'], pii_found={'pii':c['pii']} if c['pii'] else None)
-    elif st == 'completion':
-        e = make_example_completion(**kw)
+    st=opts['style']
+    kw=dict(text=c['text'],source='input.epub',chapter_title=c['chapter'],chapter_index=1,quality=c['quality'],content_type=c['content_type'],est_tokens=c['est_tokens'])
+    if st=='instruction':
+        e=make_example_instruction(**kw,total_chunks=1,template_idx=0,dims=c['quality_dims'],pii_found={'pii':c['pii']} if c['pii'] else None)
+    elif st=='completion':
+        e=make_example_completion(**kw)
     else:
-        e = make_example_chat(**kw)
+        e=make_example_chat(**kw)
     all_examples.append(e)
-
-# 7. Pack if requested
-if opts["do_pack"] and all_examples:
-    all_examples = pack_examples(all_examples, max_tokens=opts["max_chars"] // 4)
+if opts['do_pack'] and all_examples:
+    all_examples=pack_examples(all_examples,max_tokens=opts['max_chars']//4)
     _d.append(f"  Packed into {len(all_examples)} sample(s)")
-
-# 8. Build sample for preview
-c = all_chunks[0] if all_chunks else {}
-sample_ex = all_examples[0] if all_examples else {}
-
-json.dumps({
-    "debug": _d, "metadata": meta, "chapters": chapters,
-    "chunks": all_chunks, "sample_example": sample_ex, "all_examples": all_examples,
-    "stats": {
-        "chapters": len(chapters), "total_chunks": len(all_chunks),
-        "avg_quality": round(sum(c['quality'] for c in all_chunks) / len(all_chunks), 2) if all_chunks else 0,
-        "total_chars": sum(c['char_count'] for c in all_chunks),
-        "total_tokens": sum(c['est_tokens'] for c in all_chunks),
-        "domains": {d: sum(1 for c in all_chunks if c['content_type']==d) for d in set(c['content_type'] for c in all_chunks)},
-    }
-})
+sample_ex=all_examples[0] if all_examples else {}
+json.dumps({"debug":_d,"chunks":all_chunks,"sample_example":sample_ex,"all_examples":all_examples,"stats":{"total_chunks":len(all_chunks),"avg_quality":round(sum(c['quality'] for c in all_chunks)/len(all_chunks),2) if all_chunks else 0,"total_chars":sum(c['char_count'] for c in all_chunks),"total_tokens":sum(c['est_tokens'] for c in all_chunks),"domains":{d:sum(1 for c in all_chunks if c['content_type']==d) for d in set(c['content_type'] for c in all_chunks)}}})
 `);
-
         currentResults = JSON.parse(resultJson);
         currentChunks = currentResults.chunks;
 
-        // Show debug
-        if (currentResults.debug) {
-            currentResults.debug.forEach(line => {
-                if (line.includes('FAILED') || line.includes('SKIP')) dbg('warn', line);
-                else if (line.includes('OK')) dbg('ok', line);
-                else dbg('info', line);
-            });
-        }
+        currentResults.debug.forEach(l => dbg('info', l));
+        setProgress(80);
+        setStatus('loading', '⏳ [4/5] Rendering results...');
 
-        if (!currentResults.chapters || currentResults.chapters.length === 0) {
-            setStatus('error', '✗ No chapters extracted. Open debug panel (🐛 Debug) for details.');
-            dbg('err', 'Zero chapters extracted — EPUB may be empty or unreadable');
-            return;
-        }
-
+        currentResults.stats.chapters = step1.chapters.length;
+        currentResults.metadata = step1.meta;
+        currentResults.chapters = step1.chapters;
         displayResults();
-        setStatus('ready', `✓ ${currentResults.stats.total_chunks} chunks from ${currentResults.stats.chapters} chapters — avg quality ${currentResults.stats.avg_quality}`);
+
+        setProgress(100);
+        setStatus('ready', `✓ Done — ${currentResults.stats.total_chunks} chunks, avg quality ${currentResults.stats.avg_quality}`);
 
     } catch (e) {
-        setStatus('error', '✗ Error: ' + e.message);
+        setStatus('error', '✗ ' + e.message);
         dbg('err', 'Conversion error: ' + e.message);
         console.error(e);
     }
