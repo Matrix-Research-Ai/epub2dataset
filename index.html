@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>epub2dataset — EPUB to LLM Training Dataset Converter</title>
+    <meta name="description" content="Convert EPUB ebooks into high-quality LLM training datasets — 10-dim quality scoring, MinHash dedup, 3 output styles, 4 formats.">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #c8c8d4;
+            --text-dim: #6b6b80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #4ade80;
+            --blue: #60a5fa;
+            --orange: #fb923c;
+            --font: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            position: relative;
+        }
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 600px; height: 600px;
+            background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            position: relative;
+            color: #fff;
+        }
+        .logo-icon {
+            width: 48px; height: 48px;
+            background: var(--accent);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+        .subtitle {
+            margin-top: 1rem;
+            font-size: 1.05rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .badges {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: var(--font);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            text-decoration: none;
+        }
+        .badge:hover { border-color: var(--accent); color: var(--accent); }
+        .badge-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .badge-dot.green { background: var(--green); }
+        .badge-dot.blue { background: var(--blue); }
+        .badge-dot.orange { background: var(--orange); }
+
+        /* Sections */
+        section { margin: 3rem 0; }
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        h2 .arrow { color: var(--accent); }
+
+        /* Code block */
+        .code-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            font-family: var(--font);
+            font-size: 0.85rem;
+            line-height: 1.7;
+            overflow-x: auto;
+            position: relative;
+        }
+        .code-block .comment { color: var(--text-dim); }
+        .code-block .keyword { color: var(--accent); }
+        .code-block .string { color: var(--green); }
+        .code-block .cmd { color: #fff; }
+
+        /* Cards grid */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--accent); }
+        .card h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        .card p { font-size: 0.85rem; color: var(--text-dim); }
+        .card .tag {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-family: var(--font);
+            background: rgba(124, 92, 252, 0.1);
+            color: var(--accent);
+            margin-top: 0.5rem;
+        }
+
+        /* Pipeline steps */
+        .pipeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.75rem;
+        }
+        .step {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            position: relative;
+        }
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px; height: 24px;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            font-family: var(--font);
+            margin-bottom: 0.4rem;
+        }
+        .step h4 { font-size: 0.8rem; color: #fff; margin-bottom: 0.2rem; }
+        .step p { font-size: 0.7rem; color: var(--text-dim); }
+
+        /* Features list */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+        .feature-item .check {
+            color: var(--green);
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .feature-item .ref {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            font-family: var(--font);
+        }
+
+        /* Research link */
+        .research-note {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 10px 10px 0;
+            padding: 1rem 1.25rem;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .research-note a { color: var(--accent); text-decoration: none; }
+        .research-note a:hover { text-decoration: underline; }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            header { padding: 2rem 0; }
+            .logo { font-size: 1.8rem; }
+            .pipeline { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">📚</div>
+                epub2dataset
+            </div>
+            <p class="subtitle">
+                Convert EPUB ebooks into production-ready LLM training datasets.
+                10-dim quality scoring. 3 output styles. 4 formats.
+            </p>
+            <div class="badges">
+                <a class="badge" href="https://github.com/Matrix-Research-Ai/epub2dataset">
+                    <span class="badge-dot orange"></span> GitHub
+                </a>
+                <span class="badge"><span class="badge-dot green"></span> v5.0.0</span>
+                <span class="badge"><span class="badge-dot blue"></span> 58 tests</span>
+                <span class="badge"><span class="badge-dot blue"></span> Python 3.10+</span>
+                <span class="badge">MIT License</span>
+            </div>
+        </header>
+
+        <!-- Quick Install -->
+        <section>
+            <h2><span class="arrow">▸</span> Quick Install</h2>
+            <div class="code-block">
+                <span class="comment"># Install</span><br>
+                <span class="cmd">pip install ebooklib beautifulsoup4</span><br><br>
+                <span class="comment"># Convert all EPUBs in a folder</span><br>
+                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">-o</span> dataset.jsonl<br><br>
+                <span class="comment"># Chat-style for conversational models</span><br>
+                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">-o</span> chat.jsonl <span class="keyword">--style</span> chat<br><br>
+                <span class="comment"># Parquet for faster CPU I/O</span><br>
+                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">-o</span> dataset.parquet<br><br>
+                <span class="comment"># Preview before building</span><br>
+                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">--stats</span>
+            </div>
+        </section>
+
+        <!-- Pipeline -->
+        <section>
+            <h2><span class="arrow">▸</span> Pipeline</h2>
+            <div class="pipeline">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <h4>Scan</h4>
+                    <p>Recursive EPUB discovery, dedup</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <h4>Extract</h4>
+                    <p>NFKC normalization, metadata</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <h4>Classify</h4>
+                    <p>Content-type detection</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">4</div>
+                    <h4>Chunk</h4>
+                    <p>Semantic overlap splitting</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">5</div>
+                    <h4>Score</h4>
+                    <p>10-dim quality + dedup</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">6</div>
+                    <h4>Format</h4>
+                    <p>3 styles × 4 formats</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section>
+            <h2><span class="arrow">▸</span> Features</h2>
+            <div class="features">
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>10-dim Quality Scoring</strong><br>
+                    <span class="ref">Code2Doc-inspired rubric (completeness, clarity, coherence, density, structure, length, formatting, uniqueness, readability, naturalness)</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>3 Output Styles</strong><br>
+                    <span class="ref">Instruction (Alpaca ### markers), Completion, Chat (messages array)</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>4 Output Formats</strong><br>
+                    <span class="ref">JSONL, JSON, Apache Parquet, Apache Arrow (zero-copy)</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>MinHash LSH Dedup</strong><br>
+                    <span class="ref">Global near-duplicate detection across all sources</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>PII Detection</strong><br>
+                    <span class="ref">Email, phone, SSN, IP, credit card — optional redaction</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>Eval Decontamination</strong><br>
+                    <span class="ref">Built-in benchmark phrase matching + SHA256 fingerprinting</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>Domain Classification</strong><br>
+                    <span class="ref">Narrative, technical, code, dialogue, reference</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>Structured Packing</strong><br>
+                    <span class="ref">SPLICE-inspired BOS/EOS packing for context utilization</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>AI-Generated Text Detection</strong><br>
+                    <span class="ref">Burstiness, transition diversity, sentence starter analysis</span></div>
+                </div>
+                <div class="feature-item">
+                    <span class="check">✓</span>
+                    <div><strong>3 Pre-set Recipes</strong><br>
+                    <span class="ref">Strict (≥7.5), Balanced (≥6.0), Lenient (≥4.0)</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recipes -->
+        <section>
+            <h2><span class="arrow">▸</span> Recipes</h2>
+            <div class="grid-3">
+                <div class="card">
+                    <h3>Strict</h3>
+                    <p>min=500ch, max=4K, quality≥7.5, high dedup. For production fine-tuning.</p>
+                    <span class="tag">epub2dataset ./ebooks --recipe strict</span>
+                </div>
+                <div class="card">
+                    <h3>Balanced</h3>
+                    <p>min=300ch, max=8K, quality≥6.0. General purpose (default).</p>
+                    <span class="tag">epub2dataset ./ebooks</span>
+                </div>
+                <div class="card">
+                    <h3>Lenient</h3>
+                    <p>min=150ch, max=16K, quality≥4.0. Maximum data retention.</p>
+                    <span class="tag">epub2dataset ./ebooks --recipe lenient</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Research -->
+        <section>
+            <h2><span class="arrow">▸</span> Research Foundation</h2>
+            <div class="research-note">
+                This tool implements the <strong>Curate-and-Focus Methodology</strong> from 4 research papers:
+                <br><br>
+                <strong>[1]</strong> "From Curation to Code: A Practical Framework for Building Single-Domain Datasets for Low-CPU LLM Training"<br>
+                <strong>[2]</strong> "Curating for Capability: A Low-CPU Framework for Building Specialized LLM Datasets"<br>
+                <strong>[3]</strong> "Curating for Efficiency: A Blueprint for Building Specialized LLMs on Low-Power Hardware"<br>
+                <strong>[4]</strong> "From Curation to Compression: Building High-Efficiency LLM Datasets for Resource-Constrained Training"
+                <br><br>
+                <a href="https://github.com/Matrix-Research-Ai/epub2dataset/tree/main/research">→ View papers in repo</a>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p>
+                <a href="https://github.com/Matrix-Research-Ai/epub2dataset">GitHub</a>
+                &middot;
+                <a href="https://github.com/Matrix-Research-Ai/epub2dataset/blob/main/LICENSE">MIT License</a>
+                &middot;
+                Built by <a href="https://github.com/Matrix-Research-Ai">Matrix Research AI</a>
+            </p>
+            <p style="margin-top: 0.5rem; font-size: 0.7rem;">
+                Research-backed &bull; 58 tests &bull; 10 quality dimensions &bull; v5.0.0
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
