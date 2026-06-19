@@ -479,9 +479,9 @@ async function convert() {
         setProgress(10);
 
         setStatus('loading', '⏳ [2/5] Extracting chapters & metadata...');
-        // Step 1: Read + extract chapters
-        let resultJson = pyodide.runPython(`
-import json, sys
+        // Step 1: Read + extract chapters (async so Python can yield)
+        let resultJson = await pyodide.runPythonAsync(`
+import json, sys, asyncio
 from ebooklib import epub, ITEM_DOCUMENT
 _d = []
 try:
@@ -528,6 +528,7 @@ _d.append(f"Total: {len(chapters)} chapters")
 for ch in chapters:
     ch['content_type'] = classify_content(ch['text'])
 _d.append(f"Domains: { {ch['content_type'] for ch in chapters} }")
+await asyncio.sleep(0)
 json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
 `);
         let step1 = JSON.parse(resultJson);
@@ -544,25 +545,27 @@ json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
         setProgress(40);
         setStatus('loading', `⏳ [3/5] Chunking & scoring ${step1.chapters.length} chapters...`);
 
-        // Process chapters one at a time with browser yields (prevents UI freeze)
+        // Process chapters one at a time with browser yields
         const chapters = step1.chapters;
         let allChunks = [];
 
         for (let ci = 0; ci < chapters.length; ci++) {
-            // Yield to browser every chapter
             await new Promise(r => setTimeout(r, 0));
-
             const ch = chapters[ci];
+            setStatus('loading', `⏳ [3/5] Chunking ${ci+1}/${chapters.length}: ${ch.title.slice(0,40)}...`);
             dbg('info', `  Processing chapter ${ci+1}/${chapters.length}: ${ch.title}...`);
 
+            // Use runPythonAsync so Python can yield to browser mid-chunk
             const chJson = JSON.stringify(ch);
-            const chunkResult = pyodide.runPython(`
-import json
+            const chunkResult = await pyodide.runPythonAsync(`
+import json, asyncio
 ch = json.loads('${chJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
 opts = {"lightweight":${lightweight ? 'True' : 'False'},"redact_pii":${redactPII ? 'True' : 'False'},"max_chars":${maxChars}}
 ck = chunk_semantic(ch['text'], max_chars=opts['max_chars'], overlap=256)
 out = []
-for ct in ck:
+for i, ct in enumerate(ck):
+    if i > 0 and i % 5 == 0:
+        await asyncio.sleep(0)  # yield to browser every 5 chunks
     if opts['lightweight']:
         score, dims = 5.0, {}
     else:
@@ -575,8 +578,6 @@ json.dumps({"chunks":out,"count":len(out)})
 `);
             const parsed = JSON.parse(chunkResult);
             allChunks = allChunks.concat(parsed.chunks);
-
-            // Update progress within step 3
             const chapterPct = 40 + (40 * (ci + 1) / chapters.length);
             setProgress(chapterPct);
             dbg('info', `    → ${parsed.count} chunk(s)`);
@@ -585,10 +586,8 @@ json.dumps({"chunks":out,"count":len(out)})
         setProgress(80);
         setStatus('loading', '⏳ [4/5] Formatting examples...');
         await new Promise(r => setTimeout(r, 0));
-
-        // Build examples
         const allChunksJson = JSON.stringify(allChunks);
-        resultJson = pyodide.runPython(`
+        resultJson = await pyodide.runPythonAsync(`
 import json
 all_chunks = json.loads('${allChunksJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
 opts = {"style":"${style}","do_pack":${doPack ? 'True' : 'False'},"max_chars":${maxChars}}
