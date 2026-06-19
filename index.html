@@ -544,28 +544,54 @@ json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
         setProgress(40);
         setStatus('loading', `⏳ [3/5] Chunking & scoring ${step1.chapters.length} chapters...`);
 
-        // Step 2: Chunk + score + format
-        const chaptersJson = JSON.stringify(step1.chapters);
+        // Process chapters one at a time with browser yields (prevents UI freeze)
+        const chapters = step1.chapters;
+        let allChunks = [];
+
+        for (let ci = 0; ci < chapters.length; ci++) {
+            // Yield to browser every chapter
+            await new Promise(r => setTimeout(r, 0));
+
+            const ch = chapters[ci];
+            dbg('info', `  Processing chapter ${ci+1}/${chapters.length}: ${ch.title}...`);
+
+            const chJson = JSON.stringify(ch);
+            const chunkResult = pyodide.runPython(`
+import json
+ch = json.loads('${chJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
+opts = {"lightweight":${lightweight ? 'True' : 'False'},"redact_pii":${redactPII ? 'True' : 'False'},"max_chars":${maxChars}}
+ck = chunk_semantic(ch['text'], max_chars=opts['max_chars'], overlap=256)
+out = []
+for ct in ck:
+    if opts['lightweight']:
+        score, dims = 5.0, {}
+    else:
+        score, dims = quality_score_8d(ct, 100, opts['max_chars'])
+    pii = detect_pii(ct)
+    if opts['redact_pii'] and pii:
+        ct = redact_pii(ct)
+    out.append({"chapter":ch['title'],"content_type":ch['content_type'],"text":ct[:300],"char_count":len(ct),"est_tokens":estimate_tokens(ct),"quality":score,"quality_dims":dims,"pii":list(pii.keys()) if pii else []})
+json.dumps({"chunks":out,"count":len(out)})
+`);
+            const parsed = JSON.parse(chunkResult);
+            allChunks = allChunks.concat(parsed.chunks);
+
+            // Update progress within step 3
+            const chapterPct = 40 + (40 * (ci + 1) / chapters.length);
+            setProgress(chapterPct);
+            dbg('info', `    → ${parsed.count} chunk(s)`);
+        }
+
+        setProgress(80);
+        setStatus('loading', '⏳ [4/5] Formatting examples...');
+        await new Promise(r => setTimeout(r, 0));
+
+        // Build examples
+        const allChunksJson = JSON.stringify(allChunks);
         resultJson = pyodide.runPython(`
 import json
-chapters = json.loads('${chaptersJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
-opts = {"include_front":${includeFront ? 'True' : 'False'},"lightweight":${lightweight ? 'True' : 'False'},"no_dedup":${noDedup ? 'True' : 'False'},"redact_pii":${redactPII ? 'True' : 'False'},"do_pack":${doPack ? 'True' : 'False'},"split_domain":${splitDomain ? 'True' : 'False'},"max_chars":${maxChars},"style":"${style}"}
-_d=[]
-all_chunks=[]
-for ch in chapters:
-    ck = chunk_semantic(ch['text'], max_chars=opts['max_chars'], overlap=256)
-    _d.append(f"  {ch['title']}: {len(ck)} chunk(s)")
-    for ct in ck:
-        if opts['lightweight']:
-            score, dims = 5.0, {}
-        else:
-            score, dims = quality_score_8d(ct, 100, opts['max_chars'])
-        pii = detect_pii(ct)
-        if opts['redact_pii'] and pii:
-            ct = redact_pii(ct)
-        all_chunks.append({"chapter":ch['title'],"content_type":ch['content_type'],"text":ct[:300],"char_count":len(ct),"est_tokens":estimate_tokens(ct),"quality":score,"quality_dims":dims,"pii":list(pii.keys()) if pii else []})
-_d.append(f"Total chunks: {len(all_chunks)}")
-# Build examples
+all_chunks = json.loads('${allChunksJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
+opts = {"style":"${style}","do_pack":${doPack ? 'True' : 'False'},"max_chars":${maxChars}}
 all_examples=[]
 for c in all_chunks:
     st=opts['style']
@@ -579,13 +605,11 @@ for c in all_chunks:
     all_examples.append(e)
 if opts['do_pack'] and all_examples:
     all_examples=pack_examples(all_examples,max_tokens=opts['max_chars']//4)
-    _d.append(f"  Packed into {len(all_examples)} sample(s)")
 sample_ex=all_examples[0] if all_examples else {}
-json.dumps({"debug":_d,"chunks":all_chunks,"sample_example":sample_ex,"all_examples":all_examples,"stats":{"total_chunks":len(all_chunks),"avg_quality":round(sum(c['quality'] for c in all_chunks)/len(all_chunks),2) if all_chunks else 0,"total_chars":sum(c['char_count'] for c in all_chunks),"total_tokens":sum(c['est_tokens'] for c in all_chunks),"domains":{d:sum(1 for c in all_chunks if c['content_type']==d) for d in set(c['content_type'] for c in all_chunks)}}})
+json.dumps({"chunks":all_chunks,"sample_example":sample_ex,"all_examples":all_examples,"stats":{"total_chunks":len(all_chunks),"avg_quality":round(sum(c['quality'] for c in all_chunks)/len(all_chunks),2) if all_chunks else 0,"total_chars":sum(c['char_count'] for c in all_chunks),"total_tokens":sum(c['est_tokens'] for c in all_chunks),"domains":{d:sum(1 for c in all_chunks if c['content_type']==d) for d in set(c['content_type'] for c in all_chunks)}}})
 `);
         currentResults = JSON.parse(resultJson);
         currentChunks = currentResults.chunks;
-
         currentResults.debug.forEach(l => dbg('info', l));
         setProgress(80);
         setStatus('loading', '⏳ [4/5] Rendering results...');
