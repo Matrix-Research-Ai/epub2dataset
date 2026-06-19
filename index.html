@@ -232,7 +232,9 @@
                         <label style="font-size:0.75rem;"><input type="checkbox" id="chkIncludeFront"> Show front matter</label>
                         <label style="font-size:0.75rem;"><input type="checkbox" id="chkPack"> Pack mode</label>
                         <label style="font-size:0.75rem;"><input type="checkbox" id="chkSplitDomain"> Split domain</label>
-                        <button class="btn btn-primary" id="btnConvert" onclick="convert()" disabled style="margin-left:auto;">⚡ Convert</button>
+                        <button class="btn btn-primary" id="btnConvert" onclick="convert()" style="margin-left:auto;">⚡ Convert</button>
+                        <button class="btn btn-secondary" id="btnPause" onclick="togglePause()" style="font-size:0.75rem;display:none;">⏸ Pause</button>
+                        <button class="btn btn-danger" id="btnStop" onclick="stopConvert()" style="font-size:0.75rem;display:none;">⏹ Stop</button>
                         <button class="btn btn-secondary" id="btnDebug" onclick="toggleDebug()" style="font-size:0.75rem;">🐛 Debug</button>
                     </div>
 
@@ -314,6 +316,34 @@
 
 <script>
 let pyodide = null, currentFile = null, currentResults = null, currentChunks = [], debugLines = [];
+const convertState = { active: false, paused: false, cancelled: false };
+
+function togglePause() {
+    convertState.paused = !convertState.paused;
+    const btn = document.getElementById('btnPause');
+    btn.textContent = convertState.paused ? '▶ Resume' : '⏸ Pause';
+    dbg('info', convertState.paused ? '⏸ Paused' : '▶ Resumed');
+}
+function stopConvert() {
+    convertState.cancelled = true;
+    convertState.paused = false;
+    dbg('warn', '⏹ Stopping...');
+}
+function initConvertState() {
+    convertState.active = true; convertState.paused = false; convertState.cancelled = false;
+    document.getElementById('btnConvert').disabled = true;
+    document.getElementById('btnPause').style.display = ''; document.getElementById('btnPause').disabled = false;
+    document.getElementById('btnPause').textContent = '⏸ Pause';
+    document.getElementById('btnStop').style.display = ''; document.getElementById('btnStop').disabled = false;
+    document.getElementById('btnStop').textContent = '⏹ Stop';
+    pyodide.registerJsModule('convert_state', convertState);
+}
+function finishConvertState(err) {
+    convertState.active = false;
+    document.getElementById('btnConvert').disabled = false;
+    document.getElementById('btnPause').style.display = 'none';
+    document.getElementById('btnStop').style.display = 'none';
+}
 
 // ── Debug ────────────────────────────────────────────────
 function dbg(cls, msg) {
@@ -452,7 +482,7 @@ function setProgress(pct) {
 // ── Convert ──────────────────────────────────────────────
 async function convert() {
     if (!currentFile || !pyodide) return;
-    // Auto-open debug
+    initConvertState();
     document.getElementById('debugLog').classList.add('visible');
     setProgress(0);
     setStatus('loading', '⏳ [1/5] Reading EPUB file...');
@@ -482,8 +512,10 @@ async function convert() {
         // Step 1: Read + extract chapters (async so Python can yield)
         let resultJson = await pyodide.runPythonAsync(`
 import json, sys, asyncio
+import convert_state
 from ebooklib import epub, ITEM_DOCUMENT
 _d = []
+if convert_state.cancelled: raise Exception("Cancelled")
 try:
     book = epub.read_epub('/tmp/input.epub')
     _d.append("EPUB loaded OK")
@@ -528,6 +560,10 @@ _d.append(f"Total: {len(chapters)} chapters")
 for ch in chapters:
     ch['content_type'] = classify_content(ch['text'])
 _d.append(f"Domains: { {ch['content_type'] for ch in chapters} }")
+if convert_state.cancelled: raise Exception("Cancelled")
+while convert_state.paused:
+    await asyncio.sleep(0.2)
+    if convert_state.cancelled: raise Exception("Cancelled")
 await asyncio.sleep(0)
 json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
 `);
@@ -559,12 +595,21 @@ json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
             const chJson = JSON.stringify(ch);
             const chunkResult = await pyodide.runPythonAsync(`
 import json, asyncio
+import convert_state
 ch = json.loads('${chJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')
 opts = {"lightweight":${lightweight ? 'True' : 'False'},"redact_pii":${redactPII ? 'True' : 'False'},"max_chars":${maxChars}}
+if convert_state.cancelled: raise Exception("Cancelled")
+while convert_state.paused:
+    await asyncio.sleep(0.2)
+    if convert_state.cancelled: raise Exception("Cancelled")
 ck = chunk_semantic(ch['text'], max_chars=opts['max_chars'], overlap=256)
 out = []
 for i, ct in enumerate(ck):
     if i > 0 and i % 5 == 0:
+        if convert_state.cancelled: raise Exception("Cancelled")
+        while convert_state.paused:
+            await asyncio.sleep(0.2)
+            if convert_state.cancelled: raise Exception("Cancelled")
         await asyncio.sleep(0)  # yield to browser every 5 chunks
     if opts['lightweight']:
         score, dims = 5.0, {}
@@ -620,10 +665,18 @@ json.dumps({"chunks":all_chunks,"sample_example":sample_ex,"all_examples":all_ex
 
         setProgress(100);
         setStatus('ready', `✓ Done — ${currentResults.stats.total_chunks} chunks, avg quality ${currentResults.stats.avg_quality}`);
+        finishConvertState();
 
     } catch (e) {
-        setStatus('error', '✗ ' + e.message);
-        dbg('err', 'Conversion error: ' + e.message);
+        const msg = e.message || '';
+        if (msg.includes('Cancelled')) {
+            setStatus('idle', '⏹ Stopped');
+            dbg('warn', '⏹ Conversion cancelled');
+        } else {
+            setStatus('error', '✗ ' + msg);
+            dbg('err', 'Conversion error: ' + msg);
+        }
+        finishConvertState();
         console.error(e);
     }
 }
