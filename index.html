@@ -31,8 +31,6 @@
             min-height: 100vh;
         }
         .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
-
-        /* Header */
         header {
             text-align: center;
             padding: 3rem 0 2rem;
@@ -57,465 +55,108 @@
             position: relative;
             color: #fff;
         }
-        .logo-icon {
-            width: 42px; height: 42px;
-            background: var(--accent);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            box-shadow: 0 0 24px var(--accent-dim);
-        }
-        .subtitle {
-            margin-top: 0.75rem;
-            font-size: 0.95rem;
-            color: var(--text-dim);
-            max-width: 560px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .badges {
-            margin-top: 1.25rem;
-            display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.25rem 0.6rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-family: var(--font);
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            text-decoration: none;
-        }
+        .logo-icon { width: 42px; height: 42px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: 0 0 24px var(--accent-dim); }
+        .subtitle { margin-top: 0.75rem; font-size: 0.95rem; color: var(--text-dim); max-width: 560px; margin-left: auto; margin-right: auto; }
+        .badges { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+        .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-family: var(--font); background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); text-decoration: none; }
         .badge:hover { border-color: var(--accent); color: var(--accent); }
         .badge-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
         .badge-dot.green { background: var(--green); }
         .badge-dot.blue { background: var(--blue); }
         .badge-dot.orange { background: var(--orange); }
-
-        /* Playground */
-        .playground {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            margin: 2rem 0;
-        }
-        .playground-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
-        .playground-header h2 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        .playground { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 2rem 0; }
+        .playground-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+        .playground-header h2 { font-size: 1rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
         .playground-body { padding: 1.5rem; }
-
-        /* Upload area */
-        .upload-zone {
-            border: 2px dashed var(--border);
-            border-radius: 10px;
-            padding: 2.5rem 1.5rem;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            position: relative;
-        }
-        .upload-zone:hover, .upload-zone.dragover {
-            border-color: var(--accent);
-            background: var(--accent-dim);
-        }
-        .upload-zone.has-file {
-            border-color: var(--green);
-            border-style: solid;
-            background: rgba(74, 222, 128, 0.05);
-        }
+        .upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 2.5rem 1.5rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+        .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: var(--accent-dim); }
+        .upload-zone.has-file { border-color: var(--green); border-style: solid; background: rgba(74, 222, 128, 0.05); }
         .upload-zone input { display: none; }
-        .upload-icon {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-        .upload-text {
-            font-size: 0.9rem;
-            color: var(--text-dim);
-        }
+        .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .upload-text { font-size: 0.9rem; color: var(--text-dim); }
         .upload-text strong { color: var(--text); }
-        .upload-hint {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin-top: 0.5rem;
-        }
-        .file-info {
-            display: none;
-            margin-top: 0.75rem;
-            font-size: 0.8rem;
-            color: var(--green);
-            font-family: var(--font);
-        }
+        .upload-hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; }
+        .file-info { display: none; margin-top: 0.75rem; font-size: 0.8rem; color: var(--green); font-family: var(--font); }
         .upload-zone.has-file .file-info { display: block; }
-        .upload-zone.has-file .upload-icon { display: none; }
-        .upload-zone.has-file .upload-text { display: none; }
-        .upload-zone.has-file .upload-hint { display: none; }
-
-        /* Options bar */
-        .options-bar {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin: 1rem 0;
-            align-items: center;
-        }
-        .options-bar label {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .options-bar select, .options-bar input[type="number"] {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.35rem 0.6rem;
-            color: var(--text);
-            font-family: var(--font);
-            font-size: 0.8rem;
-        }
-        .options-bar select:focus, .options-bar input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.55rem 1.1rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: all 0.15s;
-            font-family: inherit;
-        }
+        .upload-zone.has-file .upload-icon, .upload-zone.has-file .upload-text, .upload-zone.has-file .upload-hint { display: none; }
+        .options-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; align-items: center; }
+        .options-bar label { font-size: 0.8rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.4rem; }
+        .options-bar select, .options-bar input[type="number"] { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.6rem; color: var(--text); font-family: var(--font); font-size: 0.8rem; }
+        .options-bar select:focus, .options-bar input:focus { outline: none; border-color: var(--accent); }
+        .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1.1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.15s; font-family: inherit; }
         .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-        }
-        .btn-primary:hover:not(:disabled) {
-            background: #8b6fff;
-            box-shadow: 0 0 20px var(--accent-dim);
-        }
-        .btn-secondary {
-            background: var(--surface2);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover:not(:disabled) {
-            border-color: var(--accent);
-        }
-        .btn-danger {
-            background: rgba(248, 113, 113, 0.1);
-            color: var(--red);
-            border: 1px solid rgba(248, 113, 113, 0.2);
-        }
-        .btn-danger:hover:not(:disabled) {
-            background: rgba(248, 113, 113, 0.2);
-        }
-
-        /* Status */
-        .status-bar {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-family: var(--font);
-            margin: 0.75rem 0;
-        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: #8b6fff; box-shadow: 0 0 20px var(--accent-dim); }
+        .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover:not(:disabled) { border-color: var(--accent); }
+        .btn-danger { background: rgba(248, 113, 113, 0.1); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.2); }
+        .btn-danger:hover:not(:disabled) { background: rgba(248, 113, 113, 0.2); }
+        .status-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.8rem; font-family: var(--font); margin: 0.75rem 0; }
         .status-bar.idle { background: transparent; color: var(--text-dim); }
         .status-bar.loading { background: rgba(96, 165, 250, 0.08); color: var(--blue); }
         .status-bar.ready { background: rgba(74, 222, 128, 0.08); color: var(--green); }
         .status-bar.error { background: rgba(248, 113, 113, 0.08); color: var(--red); }
-        .spinner {
-            width: 14px; height: 14px;
-            border: 2px solid var(--blue);
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
+        .spinner { width: 14px; height: 14px; border: 2px solid var(--blue); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Results */
-        .results {
-            display: none;
-            margin-top: 1rem;
-        }
+        .results { display: none; margin-top: 1rem; }
         .results.visible { display: block; }
-
-        .tabs {
-            display: flex;
-            gap: 0;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 1rem;
-        }
-        .tab {
-            padding: 0.6rem 1.2rem;
-            font-size: 0.8rem;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            color: var(--text-dim);
-            transition: all 0.15s;
-        }
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+        .tab { padding: 0.6rem 1.2rem; font-size: 0.8rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-dim); transition: all 0.15s; }
         .tab:hover { color: var(--text); }
-        .tab.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
-        /* Table */
-        .table-wrap {
-            overflow-x: auto;
-            margin: 0.75rem 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.8rem;
-        }
-        th {
-            text-align: left;
-            padding: 0.5rem 0.75rem;
-            color: var(--text-dim);
-            font-weight: 600;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        td {
-            padding: 0.45rem 0.75rem;
-            border-bottom: 1px solid var(--border);
-            font-family: var(--font);
-            font-size: 0.78rem;
-        }
+        .table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th { text-align: left; padding: 0.5rem 0.75rem; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); font-family: var(--font); font-size: 0.78rem; }
         tr:hover td { background: var(--accent-dim); }
-
-        .quality-bar {
-            display: inline-block;
-            height: 4px;
-            border-radius: 2px;
-            background: var(--accent);
-            margin-right: 0.5rem;
-            vertical-align: middle;
-            min-width: 20px;
-        }
-
-        /* Output preview */
-        .output-preview {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: var(--font);
-            font-size: 0.75rem;
-            line-height: 1.6;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: var(--text-dim);
-        }
+        .quality-bar { display: inline-block; height: 4px; border-radius: 2px; background: var(--accent); margin-right: 0.5rem; vertical-align: middle; min-width: 20px; }
+        .output-preview { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: var(--font); font-size: 0.75rem; line-height: 1.6; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: var(--text-dim); }
         .output-preview .highlight { color: var(--accent); }
         .output-preview .key { color: var(--blue); }
-
-        /* Stats cards */
-        .stat-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 0.75rem;
-            margin: 0.75rem 0;
-        }
-        .stat-card {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem;
-            text-align: center;
-        }
-        .stat-card .num {
-            font-size: 1.5rem;
-            font-weight: 700;
-            font-family: var(--font);
-            color: #fff;
-        }
-        .stat-card .label {
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            margin-top: 0.2rem;
-        }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }
+        .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; text-align: center; }
+        .stat-card .num { font-size: 1.5rem; font-weight: 700; font-family: var(--font); color: #fff; }
+        .stat-card .label { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; }
         .stat-card.green .num { color: var(--green); }
         .stat-card.blue .num { color: var(--blue); }
         .stat-card.orange .num { color: var(--orange); }
         .stat-card.accent .num { color: var(--accent); }
-
-        /* Dimension bars */
         .dim-list { margin: 0.5rem 0; }
-        .dim-row {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.3rem 0;
-            font-size: 0.8rem;
-        }
-        .dim-name {
-            width: 100px;
-            flex-shrink: 0;
-            text-align: right;
-            color: var(--text-dim);
-            font-size: 0.75rem;
-        }
-        .dim-bar-bg {
-            flex: 1;
-            height: 8px;
-            background: var(--surface2);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .dim-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-        .dim-val {
-            width: 30px;
-            text-align: right;
-            font-family: var(--font);
-            font-size: 0.75rem;
-            color: var(--text);
-        }
-
-        /* Section headers */
+        .dim-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; font-size: 0.8rem; }
+        .dim-name { width: 100px; flex-shrink: 0; text-align: right; color: var(--text-dim); font-size: 0.75rem; }
+        .dim-bar-bg { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+        .dim-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+        .dim-val { width: 30px; text-align: right; font-family: var(--font); font-size: 0.75rem; color: var(--text); }
         section { margin: 2.5rem 0; }
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+        .section-title { font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
         .section-title .arrow { color: var(--accent); }
-
-        /* Features grid */
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.4rem;
-        }
-        .feature-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            padding: 0.4rem;
-            font-size: 0.82rem;
-        }
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.4rem; }
+        .feature-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.4rem; font-size: 0.82rem; }
         .feature-item .check { color: var(--green); font-weight: 700; flex-shrink: 0; }
         .feature-item .ref { font-size: 0.65rem; color: var(--text-dim); font-family: var(--font); display: block; }
-
-        /* Pipeline steps */
-        .pipeline {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 0.6rem;
-        }
-        .step {
-            background: var(--surface2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem;
-            text-align: center;
-        }
-        .step-num {
-            display: inline-flex;
-            width: 22px; height: 22px;
-            border-radius: 6px;
-            background: var(--accent);
-            color: #fff;
-            font-size: 0.7rem;
-            font-weight: 700;
-            font-family: var(--font);
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 0.3rem;
-        }
+        .pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; }
+        .step { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; text-align: center; }
+        .step-num { display: inline-flex; width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 700; font-family: var(--font); align-items: center; justify-content: center; margin-bottom: 0.3rem; }
         .step h4 { font-size: 0.75rem; color: #fff; margin-bottom: 0.15rem; }
         .step p { font-size: 0.65rem; color: var(--text-dim); }
-
-        /* Research note */
-        .research-note {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--accent);
-            border-radius: 0 10px 10px 0;
-            padding: 0.9rem 1.1rem;
-            font-size: 0.82rem;
-            color: var(--text-dim);
-        }
+        .research-note { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; padding: 0.9rem 1.1rem; font-size: 0.82rem; color: var(--text-dim); }
         .research-note a { color: var(--accent); text-decoration: none; }
         .research-note a:hover { text-decoration: underline; }
-
-        /* Footer */
-        footer {
-            text-align: center;
-            padding: 2.5rem 0;
-            color: var(--text-dim);
-            font-size: 0.78rem;
-            border-top: 1px solid var(--border);
-            margin-top: 3rem;
-        }
-        footer a { color: var(--accent); text-decoration: none; }
-
-        /* Code block */
-        .code-block {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: var(--font);
-            font-size: 0.8rem;
-            line-height: 1.6;
-            overflow-x: auto;
-        }
+        .code-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: var(--font); font-size: 0.8rem; line-height: 1.6; overflow-x: auto; }
         .code-block .comment { color: var(--text-dim); }
         .code-block .keyword { color: var(--accent); }
         .code-block .cmd { color: #fff; }
-
-        /* Responsive */
+        footer { text-align: center; padding: 2.5rem 0; color: var(--text-dim); font-size: 0.78rem; border-top: 1px solid var(--border); margin-top: 3rem; }
+        footer a { color: var(--accent); text-decoration: none; }
+        /* Debug log */
+        .debug-log { display: none; margin-top: 0.5rem; background: #0d0d15; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; max-height: 200px; overflow-y: auto; font-family: var(--font); font-size: 0.7rem; line-height: 1.5; color: var(--text-dim); }
+        .debug-log.visible { display: block; }
+        .debug-log .info { color: var(--blue); }
+        .debug-log .ok { color: var(--green); }
+        .debug-log .warn { color: var(--orange); }
+        .debug-log .err { color: var(--red); }
         @media (max-width: 600px) {
             .container { padding: 1rem; }
             header { padding: 1.5rem 0; }
@@ -529,31 +170,19 @@
 </head>
 <body>
     <div class="container">
-
-        <!-- Header -->
         <header>
-            <div class="logo">
-                <div class="logo-icon">📚</div>
-                epub2dataset
-            </div>
-            <p class="subtitle">
-                Convert EPUB ebooks into quality-filtered LLM training datasets in your browser.
-                No upload to server — everything runs locally via WebAssembly Python.
-            </p>
+            <div class="logo"><div class="logo-icon">📚</div>epub2dataset</div>
+            <p class="subtitle">Convert EPUB ebooks into quality-filtered LLM training datasets in your browser. No upload to server — everything runs locally via WebAssembly Python.</p>
             <div class="badges">
-                <a class="badge" href="https://github.com/Matrix-Research-Ai/epub2dataset">
-                    <span class="badge-dot orange"></span> GitHub
-                </a>
+                <a class="badge" href="https://github.com/Matrix-Research-Ai/epub2dataset"><span class="badge-dot orange"></span> GitHub</a>
                 <span class="badge"><span class="badge-dot green"></span> v5.0.0</span>
                 <span class="badge"><span class="badge-dot blue"></span> Runs in-browser</span>
                 <span class="badge">MIT License</span>
             </div>
         </header>
 
-        <!-- Interactive Demo -->
         <section>
             <div class="section-title"><span class="arrow">▸</span> Try It — Upload an EPUB</div>
-
             <div class="playground">
                 <div class="playground-header">
                     <h2>⚡ Interactive Demo</h2>
@@ -563,83 +192,45 @@
                     </div>
                 </div>
                 <div class="playground-body">
+                    <div class="status-bar idle" id="statusBar"><span id="statusText">⏳ Loading Python engine... (first load ~5s)</span></div>
 
-                    <!-- Status -->
-                    <div class="status-bar idle" id="statusBar">
-                        <span id="statusText">⏳ Loading Python engine... (first load takes a few seconds)</span>
-                    </div>
-
-                    <!-- Python init progress -->
-                    <div class="status-bar idle" id="initBar" style="display:none;">
-                        <div class="spinner"></div>
-                        <span id="initText">Loading epub2dataset...</span>
-                    </div>
-
-                    <!-- Upload -->
                     <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
                         <div class="upload-icon">📂</div>
                         <div class="upload-text">Drop an <strong>.epub</strong> file here or click to browse</div>
-                        <div class="upload-hint">Processed entirely in your browser — nothing is uploaded</div>
+                        <div class="upload-hint">Processed entirely in your browser — nothing leaves your machine</div>
                         <div class="file-info" id="fileInfo"></div>
                         <input type="file" id="fileInput" accept=".epub" onchange="handleFile(event)">
                     </div>
 
-                    <!-- Options -->
                     <div class="options-bar">
-                        <label>Style:
-                            <select id="styleSelect">
-                                <option value="instruction">Instruction</option>
-                                <option value="completion">Completion</option>
-                                <option value="chat">Chat</option>
-                            </select>
-                        </label>
-                        <label>Recipe:
-                            <select id="recipeSelect">
-                                <option value="balanced">Balanced</option>
-                                <option value="strict">Strict</option>
-                                <option value="lenient">Lenient</option>
-                            </select>
-                        </label>
-                        <label>Max tokens:
-                            <input type="number" id="maxTokens" value="2048" min="128" max="8192" style="width:80px;">
-                        </label>
-                        <button class="btn btn-primary" id="btnConvert" onclick="convert()" disabled>
-                            ⚡ Convert
-                        </button>
+                        <label>Style: <select id="styleSelect"><option value="instruction">Instruction</option><option value="completion">Completion</option><option value="chat">Chat</option></select></label>
+                        <label>Recipe: <select id="recipeSelect"><option value="balanced">Balanced</option><option value="strict">Strict</option><option value="lenient">Lenient</option></select></label>
+                        <label>Max chars: <input type="number" id="maxTokens" value="2048" min="128" max="8192" style="width:80px;"></label>
+                        <button class="btn btn-primary" id="btnConvert" onclick="convert()" disabled>⚡ Convert</button>
+                        <button class="btn btn-secondary" id="btnDebug" onclick="toggleDebug()" style="font-size:0.75rem;">🐛 Debug</button>
                     </div>
 
-                    <!-- Results -->
-                    <div class="results" id="results">
-                        <!-- Stats -->
-                        <div class="stat-grid" id="statsGrid"></div>
+                    <div class="debug-log" id="debugLog"></div>
 
-                        <!-- Tabs -->
+                    <div class="results" id="results">
+                        <div class="stat-grid" id="statsGrid"></div>
                         <div class="tabs">
                             <div class="tab active" onclick="switchTab(this, 'tabChapters')">Chapters</div>
                             <div class="tab" onclick="switchTab(this, 'tabQuality')">Quality</div>
                             <div class="tab" onclick="switchTab(this, 'tabOutput')">Output</div>
                         </div>
-
                         <div class="tab-content active" id="tabChapters"></div>
-                        <div class="tab-content" id="tabQuality">
-                            <div class="dim-list" id="dimList"></div>
-                        </div>
+                        <div class="tab-content" id="tabQuality"><div class="dim-list" id="dimList"></div></div>
                         <div class="tab-content" id="tabOutput">
                             <div class="output-preview" id="outputPreview"></div>
-                            <div style="margin-top:0.75rem;">
-                                <button class="btn btn-primary" id="btnDownload" onclick="downloadJSONL()">
-                                    ⬇ Download JSONL
-                                </button>
-                            </div>
+                            <div style="margin-top:0.75rem;"><button class="btn btn-primary" id="btnDownload" onclick="downloadJSONL()">⬇ Download JSONL</button></div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Pipeline -->
-        <section>
-            <div class="section-title"><span class="arrow">▸</span> Pipeline</div>
+        <section><div class="section-title"><span class="arrow">▸</span> Pipeline</div>
             <div class="pipeline">
                 <div class="step"><div class="step-num">1</div><h4>Scan</h4><p>Recursive EPUB discovery</p></div>
                 <div class="step"><div class="step-num">2</div><h4>Extract</h4><p>NFKC normalization, metadata</p></div>
@@ -650,497 +241,386 @@
             </div>
         </section>
 
-        <!-- Features -->
-        <section>
-            <div class="section-title"><span class="arrow">▸</span> Features</div>
+        <section><div class="section-title"><span class="arrow">▸</span> Features</div>
             <div class="features">
-                <div class="feature-item">
-                    <span class="check">✓</span>
-                    <div><strong>10-dim Quality Scoring</strong><span class="ref">Code2Doc rubric: completeness, clarity, coherence, density, structure, length, formatting, uniqueness, readability, naturalness</span></div>
-                </div>
-                <div class="feature-item">
-                    <span class="check">✓</span>
-                    <div><strong>3 Output Styles</strong><span class="ref">Instruction (Alpaca ###), Completion, Chat (messages array)</span></div>
-                </div>
-                <div class="feature-item">
-                    <span class="check">✓</span>
-                    <div><strong>4 Formats</strong><span class="ref">JSONL, JSON, Parquet, Arrow (zero-copy)</span></div>
-                </div>
-                <div class="feature-item">
-                    <span class="check">✓</span>
-                    <div><strong>MinHash LSH Dedup</strong><span class="ref">Global near-duplicate detection</span></div>
-                </div>
-                <div class="feature-item">
-                    <span class="check">✓</span>
-                    <div><strong>PII Detection</strong><span class="ref">Email, phone, SSN, IP, credit card</span></div>
-                </div>
-                <div class="feature-item">
-                    <span class="check">✓</span>
-                    <div><strong>AI-text Detection</strong><span class="ref">Burstiness, transition diversity</span></div>
-                </div>
+                <div class="feature-item"><span class="check">✓</span><div><strong>10-dim Quality Scoring</strong><span class="ref">Code2Doc rubric: completeness, clarity, coherence, density, structure, length, formatting, uniqueness, readability, naturalness</span></div></div>
+                <div class="feature-item"><span class="check">✓</span><div><strong>3 Output Styles</strong><span class="ref">Instruction (Alpaca ###), Completion, Chat (messages array)</span></div></div>
+                <div class="feature-item"><span class="check">✓</span><div><strong>4 Formats</strong><span class="ref">JSONL, JSON, Parquet, Arrow (zero-copy)</span></div></div>
+                <div class="feature-item"><span class="check">✓</span><div><strong>MinHash LSH Dedup</strong><span class="ref">Global near-duplicate detection</span></div></div>
+                <div class="feature-item"><span class="check">✓</span><div><strong>PII Detection</strong><span class="ref">Email, phone, SSN, IP, credit card</span></div></div>
+                <div class="feature-item"><span class="check">✓</span><div><strong>AI-text Detection</strong><span class="ref">Burstiness, transition diversity</span></div></div>
             </div>
         </section>
 
-        <!-- Install -->
-        <section>
-            <div class="section-title"><span class="arrow">▸</span> Install</div>
+        <section><div class="section-title"><span class="arrow">▸</span> Install</div>
             <div class="code-block">
-                <span class="comment"># Install</span><br>
-                <span class="cmd">pip install ebooklib beautifulsoup4</span><br><br>
-                <span class="comment"># Convert all EPUBs in a folder</span><br>
-                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">-o</span> dataset.jsonl<br><br>
-                <span class="comment"># Strict quality filter</span><br>
-                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">--recipe</span> strict<br><br>
-                <span class="comment"># Preview before building</span><br>
-                <span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">--stats</span>
+                <span class="comment"># Install</span><br><span class="cmd">pip install ebooklib beautifulsoup4</span><br><br>
+                <span class="comment"># Convert all EPUBs in a folder</span><br><span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">-o</span> dataset.jsonl<br><br>
+                <span class="comment"># Strict quality filter</span><br><span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">--recipe</span> strict<br><br>
+                <span class="comment"># Preview before building</span><br><span class="cmd">epub2dataset</span> ./ebooks <span class="keyword">--stats</span>
             </div>
         </section>
 
-        <!-- Research -->
-        <section>
-            <div class="section-title"><span class="arrow">▸</span> Research Foundation</div>
-            <div class="research-note">
-                Implements the <strong>Curate-and-Focus Methodology</strong> from 4 research papers:
-                <br><br>
-                <strong>[1]</strong> "From Curation to Code: A Practical Framework for Building Single-Domain Datasets for Low-CPU LLM Training"<br>
-                <strong>[2]</strong> "Curating for Capability: A Low-CPU Framework for Building Specialized LLM Datasets"<br>
-                <strong>[3]</strong> "Curating for Efficiency: A Blueprint for Building Specialized LLMs on Low-Power Hardware"<br>
-                <strong>[4]</strong> "From Curation to Compression: Building High-Efficiency LLM Datasets for Resource-Constrained Training"
-                <br><br>
+        <section><div class="section-title"><span class="arrow">▸</span> Research Foundation</div>
+            <div class="research-note">Implements the <strong>Curate-and-Focus Methodology</strong> from 4 research papers:<br><br>
+                <strong>[1]</strong> "From Curation to Code: A Practical Framework..."<br>
+                <strong>[2]</strong> "Curating for Capability: A Low-CPU Framework..."<br>
+                <strong>[3]</strong> "Curating for Efficiency: A Blueprint..."<br>
+                <strong>[4]</strong> "From Curation to Compression: Building High-Efficiency..."<br><br>
                 <a href="https://github.com/Matrix-Research-Ai/epub2dataset/tree/main/research">→ View papers in repo</a>
             </div>
         </section>
 
-        <footer>
-            <p>
-                <a href="https://github.com/Matrix-Research-Ai/epub2dataset">GitHub</a>
-                &middot;
-                <a href="https://github.com/Matrix-Research-Ai/epub2dataset/blob/main/LICENSE">MIT License</a>
-                &middot;
-                <a href="https://github.com/Matrix-Research-Ai">Matrix Research AI</a>
-            </p>
-        </footer>
+        <footer><p><a href="https://github.com/Matrix-Research-Ai/epub2dataset">GitHub</a> &middot; <a href="https://github.com/Matrix-Research-Ai/epub2dataset/blob/main/LICENSE">MIT License</a> &middot; <a href="https://github.com/Matrix-Research-Ai">Matrix Research AI</a></p></footer>
     </div>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────
-let pyodide = null;
-let epub2dataset = null;
-let currentFile = null;
-let currentResults = null;
-let currentChunks = [];
+let pyodide = null, currentFile = null, currentResults = null, currentChunks = [], debugLines = [];
 
-// ── Pyodide Init ──────────────────────────────────────────────────────
+// ── Debug ────────────────────────────────────────────────
+function dbg(cls, msg) {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    debugLines.push({cls, msg: line});
+    const el = document.getElementById('debugLog');
+    el.innerHTML = debugLines.map(d => `<div class="${d.cls}">${escHtml(d.msg)}</div>`).join('');
+    el.scrollTop = el.scrollHeight;
+    console.log(`[epub2dataset] ${msg}`);
+}
+function toggleDebug() {
+    const el = document.getElementById('debugLog');
+    el.classList.toggle('visible');
+}
+
+// ── Pyodide Init ─────────────────────────────────────────
 async function initPyodide() {
-    const statusText = document.getElementById('statusText');
-    const statusBar = document.getElementById('statusBar');
-    const initBar = document.getElementById('initBar');
-
-    statusBar.className = 'status-bar loading';
-    statusText.innerHTML = '<div class="spinner"></div> Loading Python engine...';
-
+    setStatus('loading', '⏳ Loading Python engine...');
+    dbg('info', 'Initializing Pyodide...');
     try {
-        pyodide = await loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
-        });
+        pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/' });
+        dbg('ok', 'Pyodide loaded');
 
-        initBar.style.display = 'flex';
-        document.getElementById('initText').textContent = 'Installing packages (ebooklib, beautifulsoup4)...';
-
+        setStatus('loading', '⏳ Installing packages...');
         await pyodide.loadPackage(['micropip']);
         const micropip = pyodide.pyimport('micropip');
-        await micropip.install(['ebooklib', 'beautifulsoup4']);
-        await micropip.install(['html5lib']);
+        dbg('info', 'Installing ebooklib + beautifulsoup4...');
+        await micropip.install(['ebooklib', 'beautifulsoup4', 'html5lib']);
+        dbg('ok', 'Packages installed');
 
-        document.getElementById('initText').textContent = 'Loading epub2dataset engine...';
-
-        // Fetch the cli.py from GitHub raw (with cache busting)
-        const cacheBust = '?v=' + Date.now();
-        const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/epub2dataset/cli.py' + cacheBust);
+        setStatus('loading', '⏳ Loading epub2dataset engine...');
+        const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/epub2dataset/cli.py?v=' + Date.now());
         let cliSource = await resp.text();
-        // Strip the if __name__ block — not needed in WASM
-        cliSource = cliSource.replace(
-            /if __name__ == ["']__main__["']:\s*sys\.exit\(main\(\)\)/,
-            '# __main__ suppressed for WASM'
-        );
-        // Execute in Pyodide (with __name__ set to prevent main() trigger)
+        dbg('info', `Fetched cli.py (${(cliSource.length/1024).toFixed(0)} KB)`);
+
+        // Strip __main__ guard
+        cliSource = cliSource.replace(/if __name__ == ["']__main__["']:\s*sys\.exit\(main\(\)\)/, '# suppressed for WASM');
         pyodide.runPython('__name__ = "__not_main__"\n' + cliSource);
+        dbg('ok', 'epub2dataset engine loaded');
+        dbg('ok', 'Functions available: normalize_text, quality_score_8d, classify_content, chunk_semantic, ...');
 
-        // Expose core functions
-        epub2dataset = {
-            normalize_text: pyodide.globals.get('normalize_text'),
-            content_density: pyodide.globals.get('content_density'),
-            blank_line_ratio: pyodide.globals.get('blank_line_ratio'),
-            quality_score_8d: pyodide.globals.get('quality_score_8d'),
-            classify_content: pyodide.globals.get('classify_content'),
-            is_front_matter: pyodide.globals.get('is_front_matter'),
-            chunk_semantic: pyodide.globals.get('chunk_semantic'),
-            entropy_filter: pyodide.globals.get('entropy_filter'),
-            detect_pii: pyodide.globals.get('detect_pii'),
-            estimate_tokens: pyodide.globals.get('estimate_tokens'),
-            make_example_instruction: pyodide.globals.get('make_example_instruction'),
-            make_example_completion: pyodide.globals.get('make_example_completion'),
-            make_example_chat: pyodide.globals.get('make_example_chat'),
-            readability_flesch: pyodide.globals.get('readability_flesch'),
-            ai_naturalness_score: pyodide.globals.get('ai_naturalness_score'),
-            html_to_text: pyodide.globals.get('html_to_text'),
-        };
-
-        initBar.style.display = 'none';
-        statusBar.className = 'status-bar ready';
-        statusText.innerHTML = '✓ Python engine ready — upload an EPUB to begin';
-
+        setStatus('ready', '✓ Ready — upload an EPUB and click Convert');
         document.getElementById('btnConvert').disabled = false;
 
     } catch (e) {
-        statusBar.className = 'status-bar error';
-        statusText.textContent = '✗ Failed to load: ' + e.message;
+        setStatus('error', '✗ Failed: ' + e.message);
+        dbg('err', 'Init error: ' + e.message);
         console.error(e);
     }
 }
 
-// ── File Handling ────────────────────────────────────────────────────
-function handleFile(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    loadFile(file);
-}
-
+// ── File ─────────────────────────────────────────────────
+function handleFile(e) { if (e.target.files[0]) loadFile(e.target.files[0]); }
 function loadFile(file) {
     currentFile = file;
-    const zone = document.getElementById('uploadZone');
-    zone.classList.add('has-file');
-    document.getElementById('fileInfo').textContent =
-        `📄 ${file.name}  (${(file.size / 1024).toFixed(1)} KB)`;
+    document.getElementById('uploadZone').classList.add('has-file');
+    document.getElementById('fileInfo').textContent = `📄 ${file.name}  (${(file.size/1024).toFixed(1)} KB)`;
     document.getElementById('btnConvert').disabled = false;
     document.getElementById('btnClear').disabled = false;
     document.getElementById('results').classList.remove('visible');
     setStatus('ready', `✓ Loaded ${file.name} — click Convert`);
+    dbg('ok', `File loaded: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
 }
 
-// ── Drag & Drop ──────────────────────────────────────────────────────
 const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    zone.classList.remove('dragover');
-    const files = e.dataTransfer.files;
-    if (files.length && files[0].name.endsWith('.epub')) loadFile(files[0]);
-});
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files.length && e.dataTransfer.files[0].name.endsWith('.epub')) loadFile(e.dataTransfer.files[0]); });
 
-// ── Sample EPUB ──────────────────────────────────────────────────────
 async function loadSample() {
-    setStatus('loading', 'Downloading sample EPUB...');
+    setStatus('loading', '⏳ Downloading sample EPUB...');
+    dbg('info', 'Fetching sample EPUB from GitHub...');
     try {
-        const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/tests/fixtures/test_narrative.epub', { cache: 'no-cache' });
+        const resp = await fetch('https://raw.githubusercontent.com/Matrix-Research-Ai/epub2dataset/main/tests/fixtures/test_narrative.epub?v=' + Date.now());
         const blob = await resp.blob();
         const file = new File([blob], 'test_narrative.epub', { type: 'application/epub+zip' });
-        // Set file input
-        const dt = new DataTransfer();
-        dt.items.add(file);
+        const dt = new DataTransfer(); dt.items.add(file);
         document.getElementById('fileInput').files = dt.files;
         loadFile(file);
-        setStatus('ready', '✓ Sample EPUB loaded — click Convert');
+        dbg('ok', `Sample loaded (${(blob.size/1024).toFixed(1)} KB)`);
     } catch (e) {
-        setStatus('error', '✗ Failed to load sample: ' + e.message);
+        setStatus('error', '✗ Sample failed: ' + e.message);
+        dbg('err', 'Sample error: ' + e.message);
     }
 }
 
-// ── Clear ────────────────────────────────────────────────────────────
 function clearAll() {
-    currentFile = null;
-    currentResults = null;
-    currentChunks = [];
+    currentFile = null; currentResults = null; currentChunks = [];
     document.getElementById('uploadZone').classList.remove('has-file');
     document.getElementById('fileInput').value = '';
     document.getElementById('results').classList.remove('visible');
     document.getElementById('btnConvert').disabled = true;
     document.getElementById('btnClear').disabled = true;
-    setStatus('idle', '⏳ Python engine ready — upload an EPUB to begin');
+    debugLines = []; document.getElementById('debugLog').innerHTML = '';
+    setStatus('idle', '✓ Ready — upload an EPUB');
 }
 
-// ── Status helper ────────────────────────────────────────────────────
 function setStatus(cls, msg) {
     const bar = document.getElementById('statusBar');
     bar.className = 'status-bar ' + cls;
     document.getElementById('statusText').textContent = msg;
 }
 
-// ── Convert ──────────────────────────────────────────────────────────
+// ── Convert ──────────────────────────────────────────────
 async function convert() {
-    if (!currentFile) return;
-    if (!epub2dataset) { setStatus('error', 'Python engine still loading, please wait...'); return; }
-
-    setStatus('loading', 'Reading EPUB...');
+    if (!currentFile || !pyodide) return;
+    setStatus('loading', '⏳ Reading EPUB...');
     document.getElementById('results').classList.remove('visible');
+    debugLines = [];
+
+    const style = document.getElementById('styleSelect').value;
+    const recipe = document.getElementById('recipeSelect').value;
+    const maxChars = parseInt(document.getElementById('maxTokens').value) || 2048;
 
     try {
-        const arrayBuffer = await currentFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-
-        // Pass bytes to Python and read EPUB
-        setStatus('loading', 'Extracting chapters...');
-
-        // Write file in pyodide's virtual FS
+        const ab = await currentFile.arrayBuffer();
+        const bytes = new Uint8Array(ab);
         pyodide.FS.writeFile('/tmp/input.epub', bytes);
+        dbg('ok', `Wrote ${bytes.length} bytes to virtual FS`);
 
-        const style = document.getElementById('styleSelect').value;
-        const recipe = document.getElementById('recipeSelect').value;
-        const maxTokens = parseInt(document.getElementById('maxTokens').value) || 2048;
+        setStatus('loading', '⏳ Extracting + scoring...');
 
-        // Run conversion in Python
-        const result = pyodide.runPython(`
-import json
-from ebooklib import epub
+        // ── Run full pipeline in one Python call ──
+        const resultJson = pyodide.runPython(`
+import json, sys
+from ebooklib import epub, ITEM_DOCUMENT
 
-# Read EPUB
-book = epub.read_epub('/tmp/input.epub')
+_d = []  # debug lines
 
-# Extract metadata
+# 1. Read EPUB
+try:
+    book = epub.read_epub('/tmp/input.epub')
+    _d.append("EPUB loaded OK")
+except Exception as e:
+    _d.append(f"EPUB load FAILED: {e}")
+    raise
+
+# 2. Metadata
 meta = {"author": "", "publisher": "", "language": ""}
 if hasattr(book, 'get_metadata'):
-    dc = book.get_metadata('DC', 'creator')
-    if dc: meta['author'] = dc[0][0]
-    dp = book.get_metadata('DC', 'publisher')
-    if dp: meta['publisher'] = dp[0][0]
-    dl = book.get_metadata('DC', 'language')
-    if dl: meta['language'] = dl[0][0]
+    for k, tag in [('author','creator'),('publisher','publisher'),('language','language')]:
+        try:
+            dc = book.get_metadata('DC', tag)
+            if dc: meta[k] = str(dc[0][0])
+        except: pass
+_d.append(f"Metadata: {meta}")
 
-# Extract chapters
-items = list(book.get_items_of_type(5))  # ITEM_DOCUMENT
+# 3. Extract chapters
+items = list(book.get_items_of_type(ITEM_DOCUMENT))
+_d.append(f"Found {len(items)} document items")
+
 chapters = []
 for idx, item in enumerate(items):
+    name = item.get_name() or "?"
+    _d.append(f"  Item {idx}: {name}")
     try:
         raw = item.get_body_content().decode('utf-8', errors='replace')
+        _d.append(f"    raw size: {len(raw)} bytes")
     except:
         try:
             raw = item.get_body_content().decode('latin-1', errors='replace')
+            _d.append(f"    decoded latin-1: {len(raw)} bytes")
         except:
+            _d.append(f"    FAILED to decode")
             continue
 
+    # html_to_text from loaded cli.py globals
     text = html_to_text(raw)
+    _d.append(f"    after html_to_text: {len(text)} chars")
+
     if not text.strip():
+        _d.append(f"    SKIP: empty after cleaning")
         continue
 
-    # Get title
     import re
     title_m = re.search(r'<title[^>]*>(.*?)</title>', raw, re.IGNORECASE | re.DOTALL)
     title = title_m.group(1).strip() if title_m else f"Chapter {idx+1}"
 
-    # Skip front matter
     if is_front_matter(title, text):
+        _d.append(f"    SKIP: front matter: {title}")
         continue
 
-    chapters.append({
-        "index": idx + 1,
-        "title": title,
-        "text": text,
-        "char_count": len(text),
-    })
+    chapters.append({"index": idx+1, "title": title, "text": text, "char_count": len(text)})
+    _d.append(f"    OK: '{title}' ({len(text)} chars)")
 
-# Classify content
+_d.append(f"Total: {len(chapters)} chapters")
+
+# 4. Classify
 for ch in chapters:
     ch['content_type'] = classify_content(ch['text'])
+_d.append(f"Domains: {{c['content_type'] for c in chapters}}")
 
-# Chunk
+# 5. Chunk + score
 all_chunks = []
 for ch in chapters:
-    chunks2 = chunk_semantic(ch['text'], max_chars=${maxTokens}, overlap=256)
+    chunks2 = chunk_semantic(ch['text'], max_chars=${maxChars}, overlap=256)
+    _d.append(f"  {ch['title']}: {len(chunks2)} chunk(s)")
     for i, ct in enumerate(chunks2):
-        score, dims = quality_score_8d(ct, 100, ${maxTokens})
+        score, dims = quality_score_8d(ct, 100, ${maxChars})
         pii = detect_pii(ct)
         all_chunks.append({
-            "chapter": ch['title'],
-            "content_type": ch['content_type'],
-            "text": ct,
-            "char_count": len(ct),
+            "chapter": ch['title'], "content_type": ch['content_type'],
+            "text": ct[:300], "char_count": len(ct),
             "est_tokens": estimate_tokens(ct),
-            "quality": score,
-            "quality_dims": dims,
+            "quality": score, "quality_dims": dims,
             "pii": list(pii.keys()) if pii else [],
-            "passes_entropy": bool(entropy_filter(ct, 2.5)),
         })
+_d.append(f"Total chunks: {len(all_chunks)}")
 
-# Sort by quality
-all_chunks.sort(key=lambda x: x['quality'], reverse=True)
-
-# Build example
-style = "${style}"
+# 6. Build example
 if all_chunks:
     c = all_chunks[0]
-    if style == 'instruction':
+    if "${style}" == 'instruction':
         ex = make_example_instruction(c['text'], 'input.epub', c['chapter'], 1, 1, 0, c['quality'], c['quality_dims'], c['content_type'])
-    elif style == 'completion':
+    elif "${style}" == 'completion':
         ex = make_example_completion(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
-    elif style == 'chat':
+    else:
         ex = make_example_chat(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
 else:
     ex = {}
 
-# Build all examples
+# 7. All examples
 all_examples = []
 for c in all_chunks:
-    if style == 'instruction':
+    if "${style}" == 'instruction':
         e = make_example_instruction(c['text'], 'input.epub', c['chapter'], 1, 1, 0, c['quality'], c['quality_dims'], c['content_type'])
-    elif style == 'completion':
+    elif "${style}" == 'completion':
         e = make_example_completion(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
-    elif style == 'chat':
+    else:
         e = make_example_chat(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
     all_examples.append(e)
 
 json.dumps({
-    "metadata": meta,
-    "chapters": chapters,
-    "chunks": all_chunks,
-    "sample_example": ex,
-    "all_examples": all_examples,
+    "debug": _d, "metadata": meta, "chapters": chapters,
+    "chunks": all_chunks, "sample_example": ex, "all_examples": all_examples,
     "stats": {
         "chapters": len(chapters),
         "total_chunks": len(all_chunks),
         "avg_quality": round(sum(c['quality'] for c in all_chunks) / len(all_chunks), 2) if all_chunks else 0,
         "total_chars": sum(c['char_count'] for c in all_chunks),
         "total_tokens": sum(c['est_tokens'] for c in all_chunks),
-        "domains": {d: sum(1 for c in all_chunks if c['content_type'] == d) for d in set(c['content_type'] for c in all_chunks)},
+        "domains": {d: sum(1 for c in all_chunks if c['content_type']==d) for d in set(c['content_type'] for c in all_chunks)},
     }
 })
 `);
 
-        currentResults = JSON.parse(result);
+        currentResults = JSON.parse(resultJson);
         currentChunks = currentResults.chunks;
+
+        // Show debug
+        if (currentResults.debug) {
+            currentResults.debug.forEach(line => {
+                if (line.includes('FAILED') || line.includes('SKIP')) dbg('warn', line);
+                else if (line.includes('OK')) dbg('ok', line);
+                else dbg('info', line);
+            });
+        }
+
+        if (!currentResults.chapters || currentResults.chapters.length === 0) {
+            setStatus('error', '✗ No chapters extracted. Open debug panel (🐛 Debug) for details.');
+            dbg('err', 'Zero chapters extracted — EPUB may be empty or unreadable');
+            return;
+        }
+
         displayResults();
-        setStatus('ready', `✓ Done — ${currentResults.stats.total_chunks} chunks from ${currentResults.stats.chapters} chapters`);
+        setStatus('ready', `✓ ${currentResults.stats.total_chunks} chunks from ${currentResults.stats.chapters} chapters — avg quality ${currentResults.stats.avg_quality}`);
 
     } catch (e) {
         setStatus('error', '✗ Error: ' + e.message);
+        dbg('err', 'Conversion error: ' + e.message);
         console.error(e);
     }
 }
 
-// ── Display Results ─────────────────────────────────────────────────
+// ── Display ──────────────────────────────────────────────
 function displayResults() {
     const r = currentResults;
     if (!r || !r.chunks) return;
-
     document.getElementById('results').classList.add('visible');
 
-    // Stats
-    const statsGrid = document.getElementById('statsGrid');
-    const best = r.chunks.length > 0 ? Math.max(...r.chunks.map(c => c.quality)) : 0;
-    const worst = r.chunks.length > 0 ? Math.min(...r.chunks.filter(c => c.quality > 0).map(c => c.quality)) : 0;
-
-    statsGrid.innerHTML = `
+    const best = r.chunks.length ? Math.max(...r.chunks.map(c => c.quality)) : 0;
+    document.getElementById('statsGrid').innerHTML = `
         <div class="stat-card accent"><div class="num">${r.stats.chapters}</div><div class="label">Chapters</div></div>
         <div class="stat-card blue"><div class="num">${r.stats.total_chunks}</div><div class="label">Chunks</div></div>
         <div class="stat-card green"><div class="num">${r.stats.avg_quality}</div><div class="label">Avg Quality</div></div>
-        <div class="stat-card accent"><div class="num">${best.toFixed(1)}</div><div class="label">Best Quality</div></div>
-        <div class="stat-card orange"><div class="num">${r.stats.total_tokens}</div><div class="label">Est. Tokens</div></div>
-        <div class="stat-card blue"><div class="num">${(r.stats.total_chars / 1000).toFixed(1)}K</div><div class="label">Characters</div></div>
-    `;
+        <div class="stat-card accent"><div class="num">${best.toFixed(1)}</div><div class="label">Best</div></div>
+        <div class="stat-card orange"><div class="num">${r.stats.total_tokens}</div><div class="label">Tokens</div></div>
+        <div class="stat-card blue"><div class="num">${(r.stats.total_chars/1000).toFixed(1)}K</div><div class="label">Characters</div></div>`;
 
-    // Chapters tab
-    const tabCh = document.getElementById('tabChapters');
-    let chHtml = `<div class="table-wrap"><table><tr><th>#</th><th>Title</th><th>Type</th><th>Chars</th></tr>`;
-    for (const ch of r.chapters) {
-        chHtml += `<tr><td>${ch.index}</td><td>${escHtml(ch.title)}</td><td>${ch.content_type}</td><td>${ch.char_count.toLocaleString()}</td></tr>`;
-    }
-    chHtml += `</table></div>`;
-    tabCh.innerHTML = chHtml;
+    // Chapters
+    let chHtml = '<div class="table-wrap"><table><tr><th>#</th><th>Title</th><th>Type</th><th>Chars</th></tr>';
+    for (const ch of r.chapters) chHtml += `<tr><td>${ch.index}</td><td>${escHtml(ch.title)}</td><td>${ch.content_type}</td><td>${ch.char_count.toLocaleString()}</td></tr>`;
+    chHtml += '</table></div>';
+    document.getElementById('tabChapters').innerHTML = chHtml;
 
-    // Quality tab
-    const tabQ = document.getElementById('tabQuality');
-    const dims = r.chunks.length > 0 ? r.chunks[0].quality_dims : {};
+    // Quality
+    const dims = r.chunks.length ? r.chunks[0].quality_dims : {};
     const dimNames = Object.keys(dims).filter(k => !k.startsWith('_'));
-    const dimColors = {
-        completeness: '#7c5cfc', clarity: '#60a5fa', coherence: '#4ade80',
-        density: '#fb923c', structure: '#f87171', length: '#a78bfa',
-        formatting: '#34d399', uniqueness: '#fbbf24',
-        readability: '#60a5fa', naturalness: '#4ade80',
-    };
-    let qHtml = `<div class="dim-list"><div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;">
-        Average scores across ${r.chunks.length} chunk${r.chunks.length > 1 ? 's' : ''}</div>`;
+    const dimColors = {completeness:'#7c5cfc', clarity:'#60a5fa', coherence:'#4ade80', density:'#fb923c', structure:'#f87171', length:'#a78bfa', formatting:'#34d399', uniqueness:'#fbbf24', readability:'#60a5fa', naturalness:'#4ade80'};
+    let qHtml = `<div class="dim-list"><div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;">Averages across ${r.chunks.length} chunk(s)</div>`;
     for (const name of dimNames) {
-        const vals = r.chunks.map(c => c.quality_dims[name]).filter(v => v !== undefined && v !== null);
-        const avg = vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
-        const pct = Math.round(avg * 10);
-        qHtml += `
-        <div class="dim-row">
-            <div class="dim-name">${name}</div>
-            <div class="dim-bar-bg">
-                <div class="dim-bar-fill" style="width:${pct}%;background:${dimColors[name] || '#7c5cfc'}"></div>
-            </div>
-            <div class="dim-val">${avg.toFixed(1)}</div>
-        </div>`;
+        const vals = r.chunks.map(c => c.quality_dims[name]).filter(v => v !== undefined);
+        const avg = vals.length ? (vals.reduce((a,b)=>a+b,0) / vals.length) : 0;
+        qHtml += `<div class="dim-row"><div class="dim-name">${name}</div><div class="dim-bar-bg"><div class="dim-bar-fill" style="width:${Math.round(avg*10)}%;background:${dimColors[name]||'#7c5cfc'}"></div></div><div class="dim-val">${avg.toFixed(1)}</div></div>`;
     }
-    qHtml += `</div>`;
+    qHtml += '</div>';
 
-    // Quality distribution
-    if (r.chunks.length > 0) {
-        const sorted = [...r.chunks].sort((a, b) => b.quality - a.quality);
-        qHtml += `<div class="table-wrap" style="margin-top:1rem;"><table><tr><th>#</th><th>Chapter</th><th>Quality</th><th>Type</th><th>Tokens</th><th>PII</th></tr>`;
-        for (let i = 0; i < Math.min(sorted.length, 20); i++) {
-            const c = sorted[i];
-            const barW = Math.round((c.quality / 10) * 100);
-            qHtml += `<tr>
-                <td>${i + 1}</td>
-                <td>${escHtml(c.chapter)}</td>
-                <td><span class="quality-bar" style="width:${barW}px"></span>${c.quality.toFixed(1)}</td>
-                <td>${c.content_type}</td>
-                <td>${c.est_tokens}</td>
-                <td>${c.pii.length > 0 ? '⚠️ ' + c.pii.join(', ') : '✓'}</td>
-            </tr>`;
-        }
-        qHtml += `</table></div>`;
+    const sorted = [...r.chunks].sort((a,b) => b.quality - a.quality);
+    qHtml += `<div class="table-wrap" style="margin-top:1rem;"><table><tr><th>#</th><th>Chapter</th><th>Quality</th><th>Type</th><th>Tokens</th><th>PII</th></tr>`;
+    for (let i = 0; i < Math.min(sorted.length, 20); i++) {
+        const c = sorted[i];
+        qHtml += `<tr><td>${i+1}</td><td>${escHtml(c.chapter)}</td><td><span class="quality-bar" style="width:${Math.round((c.quality/10)*100)}px"></span>${c.quality.toFixed(1)}</td><td>${c.content_type}</td><td>${c.est_tokens}</td><td>${c.pii.length ? '⚠️ '+c.pii.join(', ') : '✓'}</td></tr>`;
     }
-    tabQ.innerHTML = qHtml;
+    qHtml += '</table></div>';
+    document.getElementById('tabQuality').innerHTML = qHtml;
 
-    // Output tab
-    const tabOut = document.getElementById('tabOutput');
-    if (r.all_examples && r.all_examples.length > 0) {
-        const previewJson = JSON.stringify(r.all_examples.slice(0, 2), null, 2);
-        tabOut.querySelector('.output-preview').innerHTML = syntaxHighlight(previewJson);
-        document.getElementById('btnDownload').style.display = 'inline-flex';
+    // Output
+    if (r.all_examples && r.all_examples.length) {
+        const preview = JSON.stringify(r.all_examples.slice(0, 2), null, 2);
+        document.getElementById('outputPreview').innerHTML = syntaxHighlight(preview);
     }
 }
 
-// ── Tab Switching ────────────────────────────────────────────────────
-function switchTab(el, tabId) {
+function switchTab(el, id) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    document.getElementById(tabId).classList.add('active');
+    document.getElementById(id).classList.add('active');
 }
 
-// ── Download ─────────────────────────────────────────────────────────
 function downloadJSONL() {
     if (!currentResults || !currentResults.all_examples) return;
     const lines = currentResults.all_examples.map(ex => JSON.stringify(ex)).join('\n');
-    const blob = new Blob([lines], { type: 'application/jsonl' });
+    const blob = new Blob([lines], {type:'application/jsonl'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'dataset.jsonl';
-    a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'dataset.jsonl'; a.click();
     URL.revokeObjectURL(url);
-    setStatus('ready', `✓ Downloaded ${currentResults.all_examples.length} examples as JSONL`);
+    setStatus('ready', `✓ Downloaded ${currentResults.all_examples.length} examples`);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────
-function escHtml(s) {
-    if (typeof s !== 'string') return String(s || '');
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function syntaxHighlight(j) {
+    return escHtml(j).replace(/"([^"]+)":/g, '<span class="key">"$1"</span>:').replace(/"([^"]*?)"/g, (m,g) => m.includes('class="') ? m : '<span class="highlight">"'+g+'"</span>');
 }
 
-function syntaxHighlight(json) {
-    return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"([^"]+)":/g, '<span class="key">"$1"</span>:')
-        .replace(/"([^"]*?)"/g, (m, g) => {
-            if (m.includes('class="')) return m;
-            return '<span class="highlight">"' + g + '"</span>';
-        });
-}
-
-// ── Init on load ─────────────────────────────────────────────────────
 window.addEventListener('load', initPyodide);
 </script>
 </body>
