@@ -555,6 +555,23 @@ def quality_score_8d(text: str, min_chars: int, max_chars: int) -> tuple[float, 
 # =========================================================================
 
 def extract_epub(epub_path: str) -> list[dict]:
+    return _extract_chapters(epub_path)
+
+
+def stream_extraction(epub_paths: list) -> iter:
+    """
+    Generator that yields chapters one at a time.
+    For memory-efficient streaming (ref [2] §3 — streaming, lazy loading).
+    """
+    for ep_path in epub_paths:
+        chapters = _extract_chapters(str(ep_path))
+        meta = extract_metadata(str(ep_path))
+        for ch in chapters:
+            ch['metadata'] = meta
+            yield ch
+
+
+def _extract_chapters(epub_path: str) -> list[dict]:
     file_hash = hashlib.sha256()
     with open(epub_path, 'rb') as f:
         for chunk in iter(lambda: f.read(65536), b''):
@@ -1627,6 +1644,30 @@ def _write_examples(examples: list, output_path: str, fmt: str):
         batch = pa.RecordBatch.from_pylist(flat, schema=pa.schema(schema))
         with pa.OSFile(output_path, 'wb') as f:
             ipc.write_file(batch, f)
+    elif fmt == 'tfrecord':
+        # TFRecord format (ref [4] §2 — efficient batch assembly via sharding)
+        try:
+            import tensorflow as tf
+            tf_examples = []
+            for ex in examples:
+                feat = {}
+                for k, v in ex.items():
+                    if isinstance(v, bool):
+                        feat[k] = tf.train.Feature(int64_list=tf.train.Int64List(value=[int(v)]))
+                    elif isinstance(v, int):
+                        feat[k] = tf.train.Feature(int64_list=tf.train.Int64List(value=[v]))
+                    elif isinstance(v, float):
+                        feat[k] = tf.train.Feature(float_list=tf.train.FloatList(value=[v]))
+                    elif isinstance(v, str):
+                        feat[k] = tf.train.Feature(bytes_list=tf.train.BytesList(value=[v.encode()]))
+                tf_ex = tf.train.Example(features=tf.train.Features(feature=feat))
+                tf_examples.append(tf_ex)
+            with tf.io.TFRecordWriter(output_path) as writer:
+                for tf_ex in tf_examples:
+                    writer.write(tf_ex.SerializeToString())
+        except ImportError:
+            log.error("TFRecord requires tensorflow: pip install tensorflow")
+            return 1
 
 
 # =========================================================================
@@ -1677,7 +1718,7 @@ def main():
     parser.add_argument("input_dir", help="Directory containing .epub files (recursive)")
     parser.add_argument("-o", "--output", default=None,
                         help="Output path (default: dataset.<format>)")
-    parser.add_argument("--format", choices=["jsonl", "json", "parquet", "arrow"],
+    parser.add_argument("--format", choices=["jsonl", "json", "parquet", "arrow", "tfrecord"],
                         default="jsonl", help="Output format (default: jsonl)")
     parser.add_argument("--style", choices=["instruction", "completion", "chat"],
                         default="instruction",
@@ -1750,16 +1791,16 @@ def main():
         if style in ('instruction','completion','chat'): args.style = style
         out = input("  Output path [dataset.jsonl]: ").strip() or "dataset.jsonl"
         args.output = out
-        fmt = input("  Format [jsonl/json/parquet/arrow]: ").strip() or "jsonl"
-        if fmt in ('jsonl','json','parquet','arrow'): args.format = fmt
+        fmt = input("  Format [jsonl/json/parquet/arrow/tfrecord]: ").strip() or "jsonl"
+        if fmt in ('jsonl','json','parquet','arrow','tfrecord'): args.format = fmt
         print()
 
     if args.output is None:
-        ext = {'jsonl': 'jsonl', 'json': 'json', 'parquet': 'parquet', 'arrow': 'arrow'}[args.format]
+        ext = {'jsonl': 'jsonl', 'json': 'json', 'parquet': 'parquet', 'arrow': 'arrow', 'tfrecord': 'tfrecord'}[args.format]
         args.output = f"dataset.{ext}"
 
     # Auto-detect format from file extension
-    ext_map = {'.jsonl': 'jsonl', '.json': 'json', '.parquet': 'parquet', '.arrow': 'arrow'}
+    ext_map = {'.jsonl': 'jsonl', '.json': 'json', '.parquet': 'parquet', '.arrow': 'arrow', '.tfrecord': 'tfrecord'}
     output_ext = os.path.splitext(args.output)[1].lower()
     if output_ext in ext_map and args.format == 'jsonl':
         # Only auto-detect if user didn't explicitly set --format

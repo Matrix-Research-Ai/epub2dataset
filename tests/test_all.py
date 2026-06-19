@@ -689,10 +689,24 @@ def test_auto_detect_format():
     import os
     from pathlib import Path
     # Simulate the CLI logic
-    ext_map = {'.jsonl': 'jsonl', '.json': 'json', '.parquet': 'parquet', '.arrow': 'arrow'}
-    tests = [("data.parquet", "parquet"), ("out.jsonl", "jsonl"), ("data.arrow", "arrow")]
+    ext_map = {'.jsonl': 'jsonl', '.json': 'json', '.parquet': 'parquet', '.arrow': 'arrow', '.tfrecord': 'tfrecord'}
+    tests = [("data.parquet", "parquet"), ("out.jsonl", "jsonl"), ("data.arrow", "arrow"), ("data.tfrecord", "tfrecord")]
     for path, expected in tests:
         ext = os.path.splitext(path)[1].lower()
         assert ext_map[ext] == expected
+
+
+def test_stream_extraction():
+    """Stream extraction generator yields chapters."""
+    from epub2dataset.cli import stream_extraction
+    path = os.path.join(FIXTURES_DIR, "test_narrative.epub")
+    chapters = list(stream_extraction([path]))
+    assert len(chapters) >= 2
+    for ch in chapters:
+        assert "text" in ch
+        assert "source" in ch
+        assert "metadata" in ch
+        assert len(ch["text"]) > 50
+
 
 
