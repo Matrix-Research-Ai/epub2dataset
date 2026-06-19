@@ -638,24 +638,23 @@ def html_to_text(html: str) -> str:
 # =========================================================================
 
 def extract_metadata(epub_path: str) -> dict:
-    """Extract author, publisher, language from EPUB metadata."""
-    meta = {"author": "", "publisher": "", "language": "", "pub_date": ""}
+    """Extract author, publisher, language, license from EPUB metadata."""
+    meta = {"author": "", "publisher": "", "language": "", "pub_date": "", "license": ""}
     try:
         book = epub.read_epub(epub_path)
         if hasattr(book, 'get_metadata'):
-            # Dublin Core metadata
-            dc_meta = book.get_metadata('DC', 'creator')
-            if dc_meta:
-                meta['author'] = dc_meta[0][0] if dc_meta[0] else ""
-            dc_pub = book.get_metadata('DC', 'publisher')
-            if dc_pub:
-                meta['publisher'] = dc_pub[0][0] if dc_pub[0] else ""
-            dc_lang = book.get_metadata('DC', 'language')
-            if dc_lang:
-                meta['language'] = dc_lang[0][0] if dc_lang[0] else ""
-            dc_date = book.get_metadata('DC', 'date')
-            if dc_date:
-                meta['pub_date'] = dc_date[0][0][:10] if dc_date[0] else ""
+            for k, tag in [('author','creator'),('publisher','publisher'),
+                            ('language','language'), ('pub_date','date'),
+                            ('license','rights')]:
+                try:
+                    dc = book.get_metadata('DC', tag)
+                    if dc and dc[0]:
+                        val = str(dc[0][0])
+                        if k == 'pub_date':
+                            val = val[:10]
+                        meta[k] = val
+                except Exception:
+                    pass
         if not meta['author'] and hasattr(book, 'authors') and book.authors:
             meta['author'] = book.authors[0]
     except Exception:
@@ -900,6 +899,7 @@ def make_example_instruction(
     content_type: str = "narrative",
     pii_found: Optional[dict] = None,
     est_tokens: int = 0,
+    metadata: Optional[dict] = None,
 ) -> dict:
     """
     Instruction-Style with Alpaca ### markers (ref [1] §5).
@@ -947,6 +947,10 @@ def make_example_instruction(
         result["quality_dimensions"] = dims
     if pii_found:
         result["pii_detected"] = pii_found
+    if metadata:
+        result["author"] = metadata.get("author", "")
+        result["publisher"] = metadata.get("publisher", "")
+        result["language"] = metadata.get("language", "")
     return result
 
 
@@ -1356,7 +1360,7 @@ def run_pipeline(args):
         for src_name, src_chunks in sorted(source_groups.items()):
             src_base = src_name.rsplit('.', 1)[0].replace(' ', '_').replace('(', '').replace(')', '')
             per_file_path = f"{base_path}_{src_base}.{ext}"
-            src_examples = _build_examples(src_chunks, style, chapter_counts)
+            src_examples = _build_examples(src_chunks, style, chapter_counts, all_metadata)
             _write_examples(src_examples, per_file_path, fmt)
             total_written += len(src_examples)
             all_examples.extend(src_examples)
@@ -1364,7 +1368,7 @@ def run_pipeline(args):
         actual_path = f"{base_path}_<source>.{ext}"
         examples = all_examples
     else:
-        examples = _build_examples(deduped, style, chapter_counts)
+        examples = _build_examples(deduped, style, chapter_counts, all_metadata)
         actual_path = output_path
 
     # Structured packing mode (SPLICE, ref [1] §6)
@@ -1500,13 +1504,15 @@ def run_pipeline(args):
     return 0
 
 
-def _build_examples(deduped: list, style: str, chapter_counts: Counter) -> list:
+def _build_examples(deduped: list, style: str, chapter_counts: Counter,
+                    metadata_map: Optional[dict] = None) -> list:
     """Build formatted examples from deduplicated chunks."""
     examples = []
     for c in deduped:
         key = (c['source'], c['chapter_title'])
         total = chapter_counts[key]
         tmpl_idx = int(hashlib.md5(c['source'].encode()).hexdigest(), 16) % len(INSTRUCTION_TEMPLATES)
+        meta = (metadata_map or {}).get(c['source'], {})
 
         if style == 'instruction':
             ex = make_example_instruction(
@@ -1519,6 +1525,7 @@ def _build_examples(deduped: list, style: str, chapter_counts: Counter) -> list:
                 content_type=c.get('content_type', 'narrative'),
                 pii_found=c.get('pii_found'),
                 est_tokens=c.get('est_tokens', 0),
+                metadata=meta,
             )
         elif style == 'completion':
             ex = make_example_completion(
@@ -1683,6 +1690,14 @@ def main():
                         help="Count tokens with specific model tokenizer (needs: pip install tiktoken)")
     parser.add_argument("--split-domain", action="store_true",
                         help="Create separate output per content type (narrative, technical, etc.)")
+
+    # v6 additions
+    parser.add_argument("--validate", action="store_true",
+                        help="Score existing JSONL against quality rubric (ref [4] — Validation)")
+    parser.add_argument("--merge", action="store_true",
+                        help="Merge multiple JSONL files with dedup (use glob: 'runs/*.jsonl')")
+    parser.add_argument("--license", type=str, default=None,
+                        help="Filter EPUBs by license type (e.g. 'cc-by', 'public domain') (ref [1] §2)")
     args = parser.parse_args()
 
     if args.output is None:
@@ -1696,7 +1711,11 @@ def main():
         # Only auto-detect if user didn't explicitly set --format
         args.format = ext_map[output_ext]
 
-    if not os.path.isdir(args.input_dir):
+    # Validate/merge modes accept file paths, not just directories
+    is_validate = getattr(args, 'validate', False)
+    is_merge = getattr(args, 'merge', False)
+
+    if not os.path.isdir(args.input_dir) and not is_validate and not is_merge:
         log.error(f"Directory not found: {args.input_dir}")
         return 1
 
@@ -1718,6 +1737,77 @@ def main():
 
     if args.stats:
         print_stats(args.input_dir)
+        return 0
+
+    # ── Validate mode (ref [4] — Validation and Sampling) ──────
+    if getattr(args, 'validate', False):
+        input_path = args.input_dir
+        if not os.path.isfile(input_path) and not input_path.endswith('.jsonl'):
+            log.error("--validate requires a path to a .jsonl file")
+            return 1
+        try:
+            scores = []
+            with open(input_path) as f:
+                for i, line in enumerate(f, 1):
+                    ex = json.loads(line)
+                    text = ex.get('response') or ex.get('completion') or ''
+                    if not text:
+                        msgs = ex.get('messages', [])
+                        if len(msgs) >= 3:
+                            text = msgs[2].get('content', '')
+                    score, dims = quality_score_8d(text, 100, 99999)
+                    scores.append(score)
+            if scores:
+                avg = sum(scores) / len(scores)
+                best = max(scores)
+                worst = min(scores)
+                log.info(f"── Validation: {input_path} ──")
+                log.info(f"  Examples: {len(scores)}")
+                log.info(f"  Avg quality: {avg:.2f}/10")
+                log.info(f"  Best: {best:.2f}/10")
+                log.info(f"  Worst: {worst:.2f}/10")
+                # Distribution histogram
+                bins = [0]*10
+                for s in scores:
+                    b = min(int(s), 9)
+                    bins[b] += 1
+                log.info(f"  Distribution:")
+                for i, count in enumerate(bins):
+                    if count > 0:
+                        bar = "█" * count + "▏" * (count % 5) if count < 50 else "█" * 50 + f" {count}"
+                        log.info(f"    {i}.{i+1}: {bar}")
+            else:
+                log.warning("No valid examples found")
+        except Exception as e:
+            log.error(f"Validation failed: {e}")
+        return 0
+
+    # ── Merge mode ─────────────────────────────────────────────
+    if getattr(args, 'merge', False):
+        import glob as gmod
+        pattern = args.input_dir
+        files = sorted(gmod.glob(pattern))
+        if not files:
+            log.error(f"No files matching: {pattern}")
+            return 1
+        all_examples = []
+        for fpath in files:
+            with open(fpath) as f:
+                for line in f:
+                    try:
+                        all_examples.append(json.loads(line))
+                    except:
+                        pass
+        log.info(f"── Merge: {len(files)} files → {len(all_examples)} examples ──")
+        # Deduplicate across merged files
+        if len(all_examples) > 1:
+            texts = [json.dumps(ex, sort_keys=True) for ex in all_examples]
+            unique = list(dict.fromkeys(texts))  # preserve order, remove exact dupes
+            all_examples = [json.loads(t) for t in unique]
+            log.info(f"  After exact dedup: {len(all_examples)} unique examples")
+        out = getattr(args, 'output', None) or 'merged.jsonl'
+        _write_examples(all_examples, out, getattr(args, 'format', 'jsonl'))
+        log.info(f"  Written to: {out}")
         return 0
 
     return run_pipeline(args)
