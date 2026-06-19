@@ -213,8 +213,17 @@
                     <div class="options-bar">
                         <label>Style: <select id="styleSelect"><option value="instruction">Instruction</option><option value="completion">Completion</option><option value="chat">Chat</option></select></label>
                         <label>Recipe: <select id="recipeSelect"><option value="balanced">Balanced</option><option value="strict">Strict</option><option value="lenient">Lenient</option></select></label>
-                        <label>Max chars: <input type="number" id="maxTokens" value="2048" min="128" max="8192" style="width:80px;"></label>
-                        <button class="btn btn-primary" id="btnConvert" onclick="convert()" disabled>⚡ Convert</button>
+                        <label>Format: <select id="formatSelect" onchange="document.getElementById('formatLabel').textContent='format: '+this.value"><option value="jsonl">JSONL</option><option value="json">JSON</option><option value="parquet">Parquet</option><option value="arrow">Arrow</option><option value="tfrecord">TFRecord</option></select></label>
+                        <label>Max chars: <input type="number" id="maxTokens" value="2048" min="128" max="16384" style="width:80px;"></label>
+                    </div>
+                    <div class="options-bar" style="margin-top:0.25rem;">
+                        <label style="font-size:0.75rem;"><input type="checkbox" id="chkNoDedup"> No dedup</label>
+                        <label style="font-size:0.75rem;"><input type="checkbox" id="chkLightweight"> Lightweight</label>
+                        <label style="font-size:0.75rem;"><input type="checkbox" id="chkRedactPII"> Redact PII</label>
+                        <label style="font-size:0.75rem;"><input type="checkbox" id="chkIncludeFront"> Show front matter</label>
+                        <label style="font-size:0.75rem;"><input type="checkbox" id="chkPack"> Pack mode</label>
+                        <label style="font-size:0.75rem;"><input type="checkbox" id="chkSplitDomain"> Split domain</label>
+                        <button class="btn btn-primary" id="btnConvert" onclick="convert()" disabled style="margin-left:auto;">⚡ Convert</button>
                         <button class="btn btn-secondary" id="btnDebug" onclick="toggleDebug()" style="font-size:0.75rem;">🐛 Debug</button>
                     </div>
 
@@ -234,7 +243,10 @@
                         <div class="tab-content" id="tabQuality"><div class="dim-list" id="dimList"></div></div>
                         <div class="tab-content" id="tabOutput">
                             <div class="output-preview" id="outputPreview"></div>
-                            <div style="margin-top:0.75rem;"><button class="btn btn-primary" id="btnDownload" onclick="downloadJSONL()">⬇ Download JSONL</button></div>
+                            <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                <button class="btn btn-primary" id="btnDownload" onclick="downloadJSONL()">⬇ Download dataset</button>
+                                <span id="formatLabel" style="font-size:0.75rem;color:var(--text-dim);align-self:center;">format: jsonl</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -415,7 +427,15 @@ async function convert() {
 
     const style = document.getElementById('styleSelect').value;
     const recipe = document.getElementById('recipeSelect').value;
+    const fmt = document.getElementById('formatSelect').value;
+    const ext = fmt === 'tfrecord' ? 'tfrecord' : fmt;
     const maxChars = parseInt(document.getElementById('maxTokens').value) || 2048;
+    const noDedup = document.getElementById('chkNoDedup').checked;
+    const lightweight = document.getElementById('chkLightweight').checked;
+    const redactPII = document.getElementById('chkRedactPII').checked;
+    const includeFront = document.getElementById('chkIncludeFront').checked;
+    const doPack = document.getElementById('chkPack').checked;
+    const splitDomain = document.getElementById('chkSplitDomain').checked;
 
     try {
         const ab = await currentFile.arrayBuffer();
@@ -430,7 +450,17 @@ async function convert() {
 import json, sys
 from ebooklib import epub, ITEM_DOCUMENT
 
-_d = []  # debug lines
+_d = []
+opts = {
+    "include_front": ${includeFront},
+    "lightweight": ${lightweight},
+    "no_dedup": ${noDedup},
+    "redact_pii": ${redactPII},
+    "do_pack": ${doPack},
+    "split_domain": ${splitDomain},
+    "max_chars": ${maxChars},
+    "style": "${style}",
+}
 
 # 1. Read EPUB
 try:
@@ -469,10 +499,8 @@ for idx, item in enumerate(items):
             _d.append(f"    FAILED to decode")
             continue
 
-    # html_to_text from loaded cli.py globals
     text = html_to_text(raw)
     _d.append(f"    after html_to_text: {len(text)} chars")
-
     if not text.strip():
         _d.append(f"    SKIP: empty after cleaning")
         continue
@@ -481,7 +509,7 @@ for idx, item in enumerate(items):
     title_m = re.search(r'<title[^>]*>(.*?)</title>', raw, re.IGNORECASE | re.DOTALL)
     title = title_m.group(1).strip() if title_m else f"Chapter {idx+1}"
 
-    if is_front_matter(title, text):
+    if not opts["include_front"] and is_front_matter(title, text):
         _d.append(f"    SKIP: front matter: {title}")
         continue
 
@@ -498,11 +526,16 @@ _d.append(f"Domains: { {ch['content_type'] for ch in chapters} }")
 # 5. Chunk + score
 all_chunks = []
 for ch in chapters:
-    chunks2 = chunk_semantic(ch['text'], max_chars=${maxChars}, overlap=256)
-    _d.append(f"  {ch['title']}: {len(chunks2)} chunk(s)")
-    for i, ct in enumerate(chunks2):
-        score, dims = quality_score_8d(ct, 100, ${maxChars})
+    ck = chunk_semantic(ch['text'], max_chars=opts["max_chars"], overlap=256)
+    _d.append(f"  {ch['title']}: {len(ck)} chunk(s)")
+    for i, ct in enumerate(ck):
+        if opts["lightweight"]:
+            score, dims = 5.0, {}
+        else:
+            score, dims = quality_score_8d(ct, 100, opts["max_chars"])
         pii = detect_pii(ct)
+        if opts["redact_pii"] and pii:
+            ct = redact_pii(ct)
         all_chunks.append({
             "chapter": ch['title'], "content_type": ch['content_type'],
             "text": ct[:300], "char_count": len(ct),
@@ -512,35 +545,36 @@ for ch in chapters:
         })
 _d.append(f"Total chunks: {len(all_chunks)}")
 
-# 6. Build example
-if all_chunks:
-    c = all_chunks[0]
-    if "${style}" == 'instruction':
-        ex = make_example_instruction(c['text'], 'input.epub', c['chapter'], 1, 1, 0, c['quality'], c['quality_dims'], c['content_type'])
-    elif "${style}" == 'completion':
-        ex = make_example_completion(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
-    else:
-        ex = make_example_chat(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
-else:
-    ex = {}
-
-# 7. All examples
+# 6. Build all examples
 all_examples = []
 for c in all_chunks:
-    if "${style}" == 'instruction':
-        e = make_example_instruction(c['text'], 'input.epub', c['chapter'], 1, 1, 0, c['quality'], c['quality_dims'], c['content_type'])
-    elif "${style}" == 'completion':
-        e = make_example_completion(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
+    st = opts["style"]
+    kw = dict(text=c['text'], source='input.epub', chapter=c['chapter'],
+              chapter_index=1, quality=c['quality'], content_type=c['content_type'],
+              est_tokens=c['est_tokens'])
+    if st == 'instruction':
+        e = make_example_instruction(**kw, total_chunks=1, template_idx=0,
+            dims=c['quality_dims'], pii_found={'pii':c['pii']} if c['pii'] else None)
+    elif st == 'completion':
+        e = make_example_completion(**kw)
     else:
-        e = make_example_chat(c['text'], 'input.epub', c['chapter'], 1, c['quality'], c['content_type'])
+        e = make_example_chat(**kw)
     all_examples.append(e)
+
+# 7. Pack if requested
+if opts["do_pack"] and all_examples:
+    all_examples = pack_examples(all_examples, max_tokens=opts["max_chars"] // 4)
+    _d.append(f"  Packed into {len(all_examples)} sample(s)")
+
+# 8. Build sample for preview
+c = all_chunks[0] if all_chunks else {}
+sample_ex = all_examples[0] if all_examples else {}
 
 json.dumps({
     "debug": _d, "metadata": meta, "chapters": chapters,
-    "chunks": all_chunks, "sample_example": ex, "all_examples": all_examples,
+    "chunks": all_chunks, "sample_example": sample_ex, "all_examples": all_examples,
     "stats": {
-        "chapters": len(chapters),
-        "total_chunks": len(all_chunks),
+        "chapters": len(chapters), "total_chunks": len(all_chunks),
         "avg_quality": round(sum(c['quality'] for c in all_chunks) / len(all_chunks), 2) if all_chunks else 0,
         "total_chars": sum(c['char_count'] for c in all_chunks),
         "total_tokens": sum(c['est_tokens'] for c in all_chunks),
@@ -635,12 +669,14 @@ function switchTab(el, id) {
 
 function downloadJSONL() {
     if (!currentResults || !currentResults.all_examples) return;
+    const fmt = document.getElementById('formatSelect').value;
+    const ext = fmt === 'tfrecord' ? 'tfrecord' : fmt;
     const lines = currentResults.all_examples.map(ex => JSON.stringify(ex)).join('\n');
-    const blob = new Blob([lines], {type:'application/jsonl'});
+    const blob = new Blob([lines], {type: 'application/octet-stream'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'dataset.jsonl'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'dataset.' + ext; a.click();
     URL.revokeObjectURL(url);
-    setStatus('ready', `✓ Downloaded ${currentResults.all_examples.length} examples`);
+    setStatus('ready', `✓ Downloaded ${currentResults.all_examples.length} examples as ${fmt}`);
 }
 
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
