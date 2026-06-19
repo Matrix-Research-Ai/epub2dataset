@@ -549,7 +549,7 @@ _d.append(f"Total chunks: {len(all_chunks)}")
 all_examples = []
 for c in all_chunks:
     st = opts["style"]
-    kw = dict(text=c['text'], source='input.epub', chapter=c['chapter'],
+    kw = dict(text=c['text'], source='input.epub', chapter_title=c['chapter'],
               chapter_index=1, quality=c['quality'], content_type=c['content_type'],
               est_tokens=c['est_tokens'])
     if st == 'instruction':
