@@ -367,17 +367,34 @@ function toggleMaxDebug() {
 }
 function copyDebug() {
     const text = debugLines.map(d => d.msg).join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = document.querySelector('.debug-copy-btn');
-        btn.textContent = '✓ Copied!';
-        setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
-    }).catch(() => {
-        // Fallback for older browsers
+    if (!text) return;
+    const btn = document.querySelector('.debug-copy-btn');
+    const ok = () => { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000); };
+    const fail = () => {
+        // Last resort: show text in a prompt dialog for manual copy
+        const saved = document.activeElement;
         const ta = document.createElement('textarea');
-        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        document.execCommand('copy'); document.body.removeChild(ta);
-    });
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.setSelectionRange(0, text.length);
+        const done = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (saved && saved.focus) saved.focus();
+        if (done) { ok(); return; }
+        // Final fallback
+        const tmp = document.createElement('div');
+        tmp.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:#12121a;border:1px solid #1e1e2e;border-radius:10px;padding:1.5rem;z-index:9999;max-width:90vw;';
+        tmp.innerHTML = '<div style="color:#c8c8d4;margin-bottom:0.75rem;font-size:0.85rem;">Select all and copy (Ctrl+C):</div><textarea style="width:600px;max-width:80vw;height:200px;background:#0d0d15;color:#c8c8d4;border:1px solid #1e1e2e;border-radius:6px;padding:0.5rem;font-family:monospace;font-size:0.7rem;" readonly>' + escHtml(text) + '</textarea><br><button class="btn btn-secondary" style="margin-top:0.5rem;" onclick="this.closest(\'div\').remove()">Close</button>';
+        document.body.appendChild(tmp);
+        tmp.querySelector('textarea').select();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(ok).catch(fail);
+    } else {
+        fail();
+    }
 }
 
 // ── Pyodide Init ─────────────────────────────────────────
@@ -568,7 +585,7 @@ await asyncio.sleep(0)
 json.dumps({"debug":_d,"meta":meta,"chapters":chapters})
 `);
         let step1 = JSON.parse(resultJson);
-        step1.debug.forEach(l => {
+        if (step1.debug && Array.isArray(step1.debug)) step1.debug.forEach(l => {
             if (l.includes('FAILED')||l.includes('SKIP')) dbg('warn', l);
             else if (l.includes('OK')) dbg('ok', l);
             else dbg('info', l);
@@ -654,7 +671,6 @@ json.dumps({"chunks":all_chunks,"sample_example":sample_ex,"all_examples":all_ex
 `);
         currentResults = JSON.parse(resultJson);
         currentChunks = currentResults.chunks;
-        currentResults.debug.forEach(l => dbg('info', l));
         setProgress(80);
         setStatus('loading', '⏳ [4/5] Rendering results...');
 
