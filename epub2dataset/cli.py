@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-epub2dataset v3 — Research-Grade EPUB to LLM Training Dataset Converter
+epub2dataset v4 — Research-Grade EPUB to LLM Training Dataset Converter
 =======================================================================
 
 Implements the full **Curate-and-Focus Methodology** from 4 research papers:
@@ -37,14 +37,30 @@ import re
 import sys
 import json
 import math
+import csv
 import hashlib
 import logging
 import argparse
 import textwrap
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from collections import defaultdict, Counter
 from datetime import datetime
 from typing import Optional
+
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+    # Dummy tqdm
+    class tqdm:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def update(self, n=1): pass
+        def set_description(self, s): pass
 
 import ebooklib
 from ebooklib import epub
@@ -433,6 +449,89 @@ def html_to_text(html: str) -> str:
 
 
 # =========================================================================
+# EPUB METADATA (ref [4] §3 — Provenance tracking)
+# =========================================================================
+
+def extract_metadata(epub_path: str) -> dict:
+    """Extract author, publisher, language from EPUB metadata."""
+    meta = {"author": "", "publisher": "", "language": "", "pub_date": ""}
+    try:
+        book = epub.read_epub(epub_path)
+        if hasattr(book, 'get_metadata'):
+            # Dublin Core metadata
+            dc_meta = book.get_metadata('DC', 'creator')
+            if dc_meta:
+                meta['author'] = dc_meta[0][0] if dc_meta[0] else ""
+            dc_pub = book.get_metadata('DC', 'publisher')
+            if dc_pub:
+                meta['publisher'] = dc_pub[0][0] if dc_pub[0] else ""
+            dc_lang = book.get_metadata('DC', 'language')
+            if dc_lang:
+                meta['language'] = dc_lang[0][0] if dc_lang[0] else ""
+            dc_date = book.get_metadata('DC', 'date')
+            if dc_date:
+                meta['pub_date'] = dc_date[0][0][:10] if dc_date[0] else ""
+        if not meta['author'] and hasattr(book, 'authors') and book.authors:
+            meta['author'] = book.authors[0]
+    except Exception:
+        pass
+    return meta
+
+
+# =========================================================================
+# EVAL BENCHMARK DECONTAMINATION (ref [1] §3)
+# =========================================================================
+
+# Common evaluation benchmark n-grams for contamination detection.
+# If a chunk contains these exact phrases, it may be from an eval set.
+BENCHMARK_PHRASES = [
+    # MMLU / General knowledge benchmarks
+    "the acceleration due to gravity is approximately",
+    "which of the following is not a prime number",
+    "the capital of Australia is",
+    "the chemical symbol for gold is",
+    # HumanEval / Code benchmarks
+    "def has_close_elements",
+    "def get_positive",
+    "def count_distinct_characters",
+    "def numerical_letter_grade",
+    "def below_threshold",
+    "from typing import List",
+    # GSM8K / Math benchmarks
+    "Natalia sold clips to 48 of her friends",
+    "Janet's ducks lay 16 eggs per day",
+    "A bat and a ball cost $1.10",
+    # BBH / BIG-Bench
+    "choose the option that best completes the pattern",
+    "which of the following is the correct ordering",
+]
+
+
+def check_benchmark_contamination(text: str) -> tuple[bool, str]:
+    """Check if text matches known eval benchmark phrases."""
+    text_lower = text.lower()
+    for phrase in BENCHMARK_PHRASES:
+        if phrase.lower() in text_lower:
+            return True, phrase[:40]
+    return False, ""
+
+
+# =========================================================================
+# PARALLEL EXTRACTION (ref [4] §2 — CPU thread pool for throughput)
+# =========================================================================
+
+def extract_epub_wrapper(args):
+    """Wrapper for parallel extraction. Args is a tuple (path, ...)."""
+    path = args if isinstance(args, str) else args[0]
+    try:
+        chapters = extract_epub(path)
+        meta = extract_metadata(path)
+        return path, chapters, meta
+    except Exception as e:
+        return path, [], {"author": "", "publisher": "", "language": "", "pub_date": ""}
+
+
+# =========================================================================
 # SEMANTIC CHUNKING (ref [3] §2 — ChunkNorris-inspired)
 # =========================================================================
 
@@ -787,28 +886,48 @@ def run_pipeline(args):
     redact_pii_flag = args.redact_pii
     no_front_matter_skip = args.include_front_matter
 
+    # Load recipe from config file if provided
+    config_path = getattr(args, 'config', None)
+    if config_path and os.path.exists(config_path):
+        with open(config_path) as f:
+            config = json.load(f)
+        recipe_name = config.get('recipe', recipe_name)
+        min_chars = config.get('min_chars', DEFAULT_MIN_CHARS)
+        max_chars = config.get('max_chars', DEFAULT_MAX_CHARS)
+        quality_threshold = config.get('quality_threshold', QUALITY_THRESHOLD)
+        similarity = config.get('similarity', DEFAULT_SIMILARITY)
+        min_density = config.get('min_density', DEFAULT_MIN_DENSITY)
+        entropy_threshold = config.get('entropy_threshold', 3.0)
+        log.info(f"  Loaded config: {config_path}")
+
     # Load recipe
     if recipe_name and recipe_name in RECIPES:
         recipe = RECIPES[recipe_name]
-        min_chars = recipe["min_chars"]
-        max_chars = recipe["max_chars"]
-        quality_threshold = recipe["quality_threshold"]
-        similarity = recipe["similarity"]
-        min_density = recipe["min_density"]
-        entropy_threshold = recipe["entropy_threshold"]
+        if not config_path:  # don't override config file values
+            min_chars = recipe["min_chars"]
+            max_chars = recipe["max_chars"]
+            quality_threshold = recipe["quality_threshold"]
+            similarity = recipe["similarity"]
+            min_density = recipe["min_density"]
+            entropy_threshold = recipe["entropy_threshold"]
         log.info(f"  Recipe: {recipe_name} "
                  f"(min={min_chars}, max={max_chars}, quality≥{quality_threshold}, style={style})")
     else:
-        min_chars = args.min_chars or DEFAULT_MIN_CHARS
-        max_chars = args.max_chars or DEFAULT_MAX_CHARS
-        quality_threshold = args.quality_threshold or QUALITY_THRESHOLD
-        similarity = args.similarity or DEFAULT_SIMILARITY
+        min_chars = min_chars if config_path else (args.min_chars or DEFAULT_MIN_CHARS)
+        max_chars = max_chars if config_path else (args.max_chars or DEFAULT_MAX_CHARS)
+        quality_threshold = quality_threshold if config_path else (args.quality_threshold or QUALITY_THRESHOLD)
+        similarity = similarity if config_path else (args.similarity or DEFAULT_SIMILARITY)
         min_density = DEFAULT_MIN_DENSITY
         entropy_threshold = 3.0
 
     if lightweight:
         log.info("  Lightweight mode: skipping entropy + structure checks")
         quality_threshold = min(quality_threshold, 5.0)
+
+    per_file = getattr(args, 'per_file', False)
+    quality_csv = getattr(args, 'quality_csv', None)
+    jobs = getattr(args, 'jobs', 1)
+    save_config = getattr(args, 'save_config', None)
 
     start_time = datetime.now()
 
@@ -829,16 +948,36 @@ def run_pipeline(args):
 
     log.info(f"── Phase 1: Scan ── found {len(epubs)} EPUB files ──")
 
-    # ── Phase 2: Extract ──────────────────────────────────────────
+    # ── Phase 2: Extract (parallel or sequential) ──────────────────
     all_chapters = []
+    all_metadata = {}
     skipped = 0
-    fm_skipped = 0
-    for ep in epubs:
-        chapters = extract_epub(str(ep))
-        if not chapters:
-            skipped += 1
-        # Count front matter skipped
-        all_chapters.extend(chapters)
+
+    ep_iter = tqdm(epubs, desc="Extracting EPUBs", disable=not HAS_TQDM) if HAS_TQDM else epubs
+
+    if jobs > 1 and len(epubs) > 1:
+        # Parallel extraction (ref [4] §2 — CPU thread pool)
+        n_workers = min(jobs, len(epubs), multiprocessing.cpu_count())
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            futures = {executor.submit(extract_epub_wrapper, str(ep)): ep for ep in epubs}
+            for future in as_completed(futures):
+                ep_path, chapters, meta = future.result()
+                all_metadata[os.path.basename(ep_path)] = meta
+                if not chapters:
+                    skipped += 1
+                all_chapters.extend(chapters)
+                if HAS_TQDM:
+                    ep_iter.update(1)
+    else:
+        for ep in epubs:
+            chapters = extract_epub(str(ep))
+            meta = extract_metadata(str(ep))
+            all_metadata[ep.name] = meta
+            if not chapters:
+                skipped += 1
+            all_chapters.extend(chapters)
+            if HAS_TQDM:
+                ep_iter.update(1)
 
     log.info(f"── Phase 2: Extract ── {len(all_chapters)} chapters"
              f" (skipped {skipped} files) ──")
@@ -963,57 +1102,56 @@ def run_pipeline(args):
 
     contaminated = 0
     if not lightweight:
+        # Check built-in benchmark phrases first (ref [1] §3)
         for c in deduped[:]:
-            is_contam, bench = check_decontamination(c['text'])
+            is_contam, phrase = check_benchmark_contamination(c['text'])
+            if not is_contam:
+                is_contam, phrase = check_decontamination(c['text'])
             if is_contam:
                 deduped.remove(c)
                 contaminated += 1
         if contaminated:
-            log.info(f"  Decontamination: removed {contaminated} chunks")
+            log.info(f"  Decontamination: removed {contaminated} chunks (benchmark phrases + eval hashes)")
+
+    # Export quality distribution CSV if requested
+    if quality_csv and scored:
+        with open(quality_csv, 'w', newline='', encoding='utf-8') as f:
+            w = csv.writer(f)
+            w.writerow(["source", "chapter", "quality", "content_type", "est_tokens", "chars"] + QUALITY_DIMENSIONS)
+            for c in scored:
+                dims = c.get('quality_dims', {})
+                row = [c['source'], c['chapter_title'], c.get('quality', 0),
+                       c.get('content_type', ''), c.get('est_tokens', 0), c.get('raw_chars', 0)]
+                row += [dims.get(d, '') for d in QUALITY_DIMENSIONS]
+                w.writerow(row)
+        log.info(f"  Quality CSV: {quality_csv}")
 
     # ── Phase 6: Format & Write ───────────────────────────────────
     chapter_counts = Counter((c['source'], c['chapter_title']) for c in deduped)
-    # Content-type distribution
     final_domain_dist = Counter(c.get('content_type', 'narrative') for c in deduped)
 
-    examples = []
-    for c in deduped:
-        key = (c['source'], c['chapter_title'])
-        total = chapter_counts[key]
-        tmpl_idx = int(hashlib.md5(c['source'].encode()).hexdigest(), 16) % len(INSTRUCTION_TEMPLATES)
-
-        if style == 'instruction':
-            ex = make_example_instruction(
-                text=c['text'], source=c['source'],
-                chapter_title=c['chapter_title'],
-                chapter_index=c['chapter_index'],
-                total_chunks=total, template_idx=tmpl_idx,
-                quality=c.get('quality', 5.0),
-                dims=c.get('quality_dims'),
-                content_type=c.get('content_type', 'narrative'),
-                pii_found=c.get('pii_found'),
-                est_tokens=c.get('est_tokens', 0),
-            )
-        elif style == 'completion':
-            ex = make_example_completion(
-                text=c['text'], source=c['source'],
-                chapter_title=c['chapter_title'],
-                chapter_index=c['chapter_index'],
-                quality=c.get('quality', 5.0),
-                content_type=c.get('content_type', 'narrative'),
-                est_tokens=c.get('est_tokens', 0),
-            )
-        elif style == 'chat':
-            ex = make_example_chat(
-                text=c['text'], source=c['source'],
-                chapter_title=c['chapter_title'],
-                chapter_index=c['chapter_index'],
-                quality=c.get('quality', 5.0),
-                content_type=c.get('content_type', 'narrative'),
-                est_tokens=c.get('est_tokens', 0),
-            )
-
-        examples.append(ex)
+    # Per-file output mode (SlimPajama-style, ref [4])
+    if per_file:
+        source_groups = defaultdict(list)
+        for c in deduped:
+            source_groups[c['source']].append(c)
+        base_path = output_path.rsplit('.', 1)[0]
+        ext = output_path.rsplit('.', 1)[1] if '.' in output_path else fmt
+        total_written = 0
+        all_examples = []
+        for src_name, src_chunks in sorted(source_groups.items()):
+            src_base = src_name.rsplit('.', 1)[0].replace(' ', '_').replace('(', '').replace(')', '')
+            per_file_path = f"{base_path}_{src_base}.{ext}"
+            src_examples = _build_examples(src_chunks, style, chapter_counts)
+            _write_examples(src_examples, per_file_path, fmt)
+            total_written += len(src_examples)
+            all_examples.extend(src_examples)
+        log.info(f"  Per-file output: {len(source_groups)} files ({total_written} total examples)")
+        actual_path = f"{base_path}_<source>.{ext}"
+        examples = all_examples
+    else:
+        examples = _build_examples(deduped, style, chapter_counts)
+        actual_path = output_path
 
     # Write output (with sharding support, ref [4] — SlimPajama-style)
     if shard_count > 0 and len(examples) > shard_count:
@@ -1111,6 +1249,48 @@ def run_pipeline(args):
                 log.info(f"    messages: {len(msgs)} turns (system/user/assistant)")
 
     return 0
+
+
+def _build_examples(deduped: list, style: str, chapter_counts: Counter) -> list:
+    """Build formatted examples from deduplicated chunks."""
+    examples = []
+    for c in deduped:
+        key = (c['source'], c['chapter_title'])
+        total = chapter_counts[key]
+        tmpl_idx = int(hashlib.md5(c['source'].encode()).hexdigest(), 16) % len(INSTRUCTION_TEMPLATES)
+
+        if style == 'instruction':
+            ex = make_example_instruction(
+                text=c['text'], source=c['source'],
+                chapter_title=c['chapter_title'],
+                chapter_index=c['chapter_index'],
+                total_chunks=total, template_idx=tmpl_idx,
+                quality=c.get('quality', 5.0),
+                dims=c.get('quality_dims'),
+                content_type=c.get('content_type', 'narrative'),
+                pii_found=c.get('pii_found'),
+                est_tokens=c.get('est_tokens', 0),
+            )
+        elif style == 'completion':
+            ex = make_example_completion(
+                text=c['text'], source=c['source'],
+                chapter_title=c['chapter_title'],
+                chapter_index=c['chapter_index'],
+                quality=c.get('quality', 5.0),
+                content_type=c.get('content_type', 'narrative'),
+                est_tokens=c.get('est_tokens', 0),
+            )
+        elif style == 'chat':
+            ex = make_example_chat(
+                text=c['text'], source=c['source'],
+                chapter_title=c['chapter_title'],
+                chapter_index=c['chapter_index'],
+                quality=c.get('quality', 5.0),
+                content_type=c.get('content_type', 'narrative'),
+                est_tokens=c.get('est_tokens', 0),
+            )
+        examples.append(ex)
+    return examples
 
 
 def _write_examples(examples: list, output_path: str, fmt: str):
@@ -1230,6 +1410,18 @@ def main():
     parser.add_argument("--stats", action="store_true")
     parser.add_argument("--stream", action="store_true",
                         help="Streaming mode (process without loading all into RAM)")
+
+    # v4 additions
+    parser.add_argument("--jobs", type=int, default=1,
+                        help="Parallel extraction workers (ref [4] §2 — CPU thread pool)")
+    parser.add_argument("--config", type=str, default=None,
+                        help="Load recipe from JSON config file")
+    parser.add_argument("--save-config", type=str, default=None,
+                        help="Save current recipe as JSON config file")
+    parser.add_argument("--per-file", action="store_true",
+                        help="One output file per source EPUB (SlimPajama-style, ref [4])")
+    parser.add_argument("--quality-csv", type=str, default=None,
+                        help="Export quality scores as CSV for analysis")
     args = parser.parse_args()
 
     if args.output is None:
@@ -1239,6 +1431,22 @@ def main():
     if not os.path.isdir(args.input_dir):
         log.error(f"Directory not found: {args.input_dir}")
         return 1
+
+    # Save config if requested
+    if args.save_config:
+        config = {
+            "recipe": args.recipe,
+            "min_chars": args.min_chars,
+            "max_chars": args.max_chars,
+            "quality_threshold": args.quality_threshold,
+            "similarity": args.similarity,
+            "style": args.style,
+        }
+        config = {k: v for k, v in config.items() if v is not None}
+        with open(args.save_config, 'w') as f:
+            json.dump(config, f, indent=2)
+        log.info(f"Saved config: {args.save_config}")
+        return 0
 
     if args.stats:
         print_stats(args.input_dir)

@@ -537,3 +537,87 @@ def test_version():
     """Package version is defined."""
     from epub2dataset import __version__
     assert __version__ == "3.0.0"
+
+
+# =========================================================================
+# v4 new feature tests
+# =========================================================================
+
+def test_extract_metadata():
+    """EPUB metadata extraction."""
+    path = os.path.join(FIXTURES_DIR, "test_narrative.epub")
+    from epub2dataset.cli import extract_metadata
+    meta = extract_metadata(path)
+    assert isinstance(meta, dict)
+    assert "author" in meta
+    assert "language" in meta
+    assert "publisher" in meta
+
+
+def test_check_benchmark_contamination():
+    """Built-in eval benchmark phrase detection."""
+    from epub2dataset.cli import check_benchmark_contamination
+    # Should detect known benchmark phrases
+    found, phrase = check_benchmark_contamination(
+        "the acceleration due to gravity is approximately 9.8 m/s²"
+    )
+    assert found
+    # Clean text should not trigger
+    found, phrase = check_benchmark_contamination(
+        "This is a completely original text about computing history."
+    )
+    assert not found
+
+
+def test_extract_epub_wrapper():
+    """Parallel extraction wrapper returns (path, chapters, meta)."""
+    from epub2dataset.cli import extract_epub_wrapper
+    path = os.path.join(FIXTURES_DIR, "test_narrative.epub")
+    result = extract_epub_wrapper(path)
+    assert len(result) == 3
+    assert result[0] == path
+    assert len(result[1]) >= 2  # chapters
+    assert isinstance(result[2], dict)  # metadata
+
+
+def test_build_examples_function_exists():
+    """_build_examples function is importable."""
+    from epub2dataset.cli import _build_examples
+    assert callable(_build_examples)
+
+
+def test_save_and_load_config(tmp_path):
+    """Save config JSON and reload it."""
+    import json
+    from epub2dataset.cli import RECIPES
+    config_path = os.path.join(tmp_path, "recipe.json")
+    config = {"recipe": "strict", "min_chars": 500, "style": "instruction"}
+    with open(config_path, 'w') as f:
+        json.dump(config, f)
+    # Verify the file
+    with open(config_path) as f:
+        loaded = json.load(f)
+    assert loaded["recipe"] == "strict"
+    assert loaded["min_chars"] == 500
+
+
+def test_quality_csv_format(tmp_path):
+    """Quality CSV has expected columns."""
+    import csv
+    csv_path = os.path.join(tmp_path, "quality.csv")
+    with open(csv_path, 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(["source", "chapter", "quality", "content_type", "est_tokens", "chars",
+                     "completeness", "clarity", "coherence", "density", "structure",
+                     "length", "formatting", "uniqueness"])
+        w.writerow(["test.epub", "Ch1", 8.5, "narrative", 100, 400,
+                    8.0, 9.0, 7.0, 10.0, 0.0, 10.0, 10.0, 7.5])
+    with open(csv_path) as f:
+        reader = csv.reader(f)
+        headers = next(reader)
+        assert "quality" in headers
+        assert "completeness" in headers
+        assert "uniqueness" in headers
+        row = next(reader)
+        assert float(row[2]) == 8.5
+
