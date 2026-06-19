@@ -269,6 +269,91 @@ def estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+def estimate_tokens_precise(text: str, model: str = "cl100k") -> int:
+    """
+    Count tokens using a specific model's tokenizer.
+    Supports: cl100k (GPT-4, GPT-3.5), p50k (Codex), r50k (GPT-3, Ada).
+    Falls back to char/4 ratio if tiktoken not installed.
+    (ref [4] §3 — tokenization as bottleneck)
+    """
+    encodings = {"cl100k": "cl100k_base", "p50k": "p50k_base", "r50k": "r50k_base"}
+    if model in encodings:
+        try:
+            import tiktoken
+            enc = tiktoken.get_encoding(encodings[model])
+            return len(enc.encode(text))
+        except ImportError:
+            pass
+    return estimate_tokens(text)
+
+
+# =========================================================================
+# STRUCTURED PACKING (ref [1] §6, [3] §2 — SPLICE algorithm)
+# =========================================================================
+
+def pack_examples(examples: list, max_tokens: int = 2048,
+                  bos_token: str = "<|begin|>", eos_token: str = "<|end|>") -> list[dict]:
+    """
+    Pack multiple related examples into a single training sample.
+    Inspired by SPLICE algorithm and structured packing (ref [1], [3]).
+
+    Each packed sample concatenates multiple related chunks separated by
+    BOS/EOS markers, improving context window utilization.
+    """
+    if not examples:
+        return []
+
+    packed = []
+    current_chunks = []
+    current_tokens = 0
+
+    for ex in examples:
+        # Extract text from any format
+        text = ex.get("response") or ex.get("completion") or ""
+        if not text:
+            msgs = ex.get("messages", [])
+            if len(msgs) >= 3:
+                text = msgs[2].get("content", "")
+        if not text:
+            text = str(ex.get("instruction", ""))
+        ex_tokens = len(text) // 4  # rough estimate
+        overhead = len(bos_token) // 4 + len(eos_token) // 4  # BOS/EOS overhead
+
+        if current_tokens + ex_tokens + overhead > max_tokens:
+            # Flush current pack
+            if current_chunks:
+                packed_text = ""
+                for chunk_text in current_chunks:
+                    packed_text += f"{bos_token}\n{chunk_text}\n{eos_token}\n"
+                packed.append({
+                    "instruction": "Study the following collection of related passages.",
+                    "input": "Multiple excerpts from curated sources.",
+                    "response": packed_text.strip(),
+                    "packed_count": len(current_chunks),
+                    "packed_tokens": current_tokens,
+                })
+            current_chunks = [text]
+            current_tokens = ex_tokens + overhead
+        else:
+            current_chunks.append(text)
+            current_tokens += ex_tokens + overhead
+
+    # Flush remaining
+    if current_chunks:
+        packed_text = ""
+        for chunk_text in current_chunks:
+            packed_text += f"{bos_token}\n{chunk_text}\n{eos_token}\n"
+        packed.append({
+            "instruction": "Study the following collection of related passages.",
+            "input": "Multiple excerpts from curated sources.",
+            "response": packed_text.strip(),
+            "packed_count": len(current_chunks),
+            "packed_tokens": current_tokens,
+        })
+
+    return packed
+
+
 # =========================================================================
 # PII DETECTION (ref [1] §3 — Privacy Compliance with Microsoft Presidio)
 # =========================================================================
@@ -1014,6 +1099,10 @@ def run_pipeline(args):
     quality_csv = getattr(args, 'quality_csv', None)
     jobs = getattr(args, 'jobs', 1)
     save_config = getattr(args, 'save_config', None)
+    do_pack = getattr(args, 'pack', False)
+    pack_max_tokens = getattr(args, 'pack_max_tokens', 2048)
+    tokenizer_model = getattr(args, 'tokenizer', None)
+    split_domain = getattr(args, 'split_domain', False)
 
     start_time = datetime.now()
 
@@ -1263,6 +1352,31 @@ def run_pipeline(args):
     else:
         examples = _build_examples(deduped, style, chapter_counts)
         actual_path = output_path
+
+    # Structured packing mode (SPLICE, ref [1] §6)
+    if do_pack and examples:
+        packed = pack_examples(examples, max_tokens=pack_max_tokens)
+        log.info(f"  Packing: {len(examples)} examples → {len(packed)} packed samples"
+                 f" (ratio: {len(packed)/max(len(examples),1):.1%})")
+        examples = packed
+
+    # Split by domain (ref [1] §3 — Domain Isolation)
+    if split_domain and not do_pack and not per_file:
+        domain_groups = defaultdict(list)
+        for ex in examples:
+            domain = ex.get('content_type', 'narrative')
+            domain_groups[domain].append(ex)
+        base_path = output_path.rsplit('.', 1)[0]
+        ext = output_path.rsplit('.', 1)[1] if '.' in output_path else fmt
+        total_written = 0
+        for domain, domain_exs in sorted(domain_groups.items()):
+            domain_path = f"{base_path}_{domain}.{ext}"
+            _write_examples(domain_exs, domain_path, fmt)
+            total_written += len(domain_exs)
+        log.info(f"  Split by domain: {len(domain_groups)} files ({total_written} total examples)")
+        actual_path = f"{base_path}_<domain>.{ext}"
+    elif split_domain and per_file:
+        log.info("  Note: --split-domain and --per-file are mutually exclusive; using per-file")
 
     # Write output (with sharding support, ref [4] — SlimPajama-style)
     if shard_count > 0 and len(examples) > shard_count:
@@ -1533,8 +1647,9 @@ def main():
                         help="Streaming mode (process without loading all into RAM)")
 
     # v4 additions
-    parser.add_argument("--jobs", type=int, default=1,
-                        help="Parallel extraction workers (ref [4] §2 — CPU thread pool)")
+    default_jobs = multiprocessing.cpu_count()
+    parser.add_argument("--jobs", type=int, default=default_jobs,
+                        help=f"Parallel extraction workers (default: {default_jobs}, ref [4] §2 — CPU thread pool)")
     parser.add_argument("--config", type=str, default=None,
                         help="Load recipe from JSON config file")
     parser.add_argument("--save-config", type=str, default=None,
@@ -1543,6 +1658,17 @@ def main():
                         help="One output file per source EPUB (SlimPajama-style, ref [4])")
     parser.add_argument("--quality-csv", type=str, default=None,
                         help="Export quality scores as CSV for analysis")
+
+    # v5 additions
+    parser.add_argument("--pack", action="store_true",
+                        help="Structured packing mode — combine related chunks (SPLICE, ref [1] §6)")
+    parser.add_argument("--pack-max-tokens", type=int, default=2048,
+                        help="Max tokens per packed sample (default: 2048, only with --pack)")
+    parser.add_argument("--tokenizer", type=str, default=None,
+                        choices=["cl100k", "p50k", "r50k"],
+                        help="Count tokens with specific model tokenizer (needs: pip install tiktoken)")
+    parser.add_argument("--split-domain", action="store_true",
+                        help="Create separate output per content type (narrative, technical, etc.)")
     args = parser.parse_args()
 
     if args.output is None:

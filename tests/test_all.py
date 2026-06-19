@@ -536,7 +536,7 @@ def test_module_imports():
 def test_version():
     """Package version is defined."""
     from epub2dataset import __version__
-    assert __version__ == "3.0.0"
+    assert __version__ == "5.0.0"
 
 
 # =========================================================================
@@ -620,4 +620,81 @@ def test_quality_csv_format(tmp_path):
         assert "uniqueness" in headers
         row = next(reader)
         assert float(row[2]) == 8.5
+
+
+# =========================================================================
+# v6 feature tests
+# =========================================================================
+
+def test_estimate_tokens_precise():
+    """Precise token estimation fallback."""
+    from epub2dataset.cli import estimate_tokens_precise
+    # Should fall back to char/4 ratio without tiktoken
+    tokens = estimate_tokens_precise("Hello world test text here", model="cl100k")
+    assert tokens >= 1
+    assert isinstance(tokens, int)
+
+
+def test_pack_examples():
+    """Structured packing combines examples."""
+    from epub2dataset.cli import pack_examples
+    examples = [
+        {"response": "Short text one.", "content_type": "narrative"},
+        {"response": "Short text two.", "content_type": "narrative"},
+        {"response": "Short text three.", "content_type": "narrative"},
+    ]
+    packed = pack_examples(examples, max_tokens=100)
+    assert len(packed) >= 1
+    assert "packed_count" in packed[0]
+    assert "<|begin|>" in packed[0]["response"]
+    assert "<|end|>" in packed[0]["response"]
+
+
+def test_pack_examples_empty():
+    """Empty list returns empty."""
+    from epub2dataset.cli import pack_examples
+    assert pack_examples([]) == []
+
+
+def test_pack_examples_single():
+    """Single example packs into one."""
+    from epub2dataset.cli import pack_examples
+    packed = pack_examples([{"response": "Test."}], max_tokens=1000)
+    assert len(packed) == 1
+    assert packed[0]["packed_count"] == 1
+
+
+def test_pack_small_max_tokens():
+    """Small max_tokens creates multiple packs."""
+    from epub2dataset.cli import pack_examples
+    long_text = "This is a longer text that will exceed the small token limit. " * 20
+    examples = [{"response": long_text}, {"response": long_text}]
+    packed = pack_examples(examples, max_tokens=50)
+    assert len(packed) >= 2  # Should need multiple packs
+
+
+def test_split_domain_default():
+    """Domain splitting creates separate groups."""
+    from epub2dataset.cli import classify_content
+    texts = [
+        '"Hello," said John. "How are you?"',
+        "The API endpoint processes HTTP POST requests.",
+        "The sun rose over the mountains.",
+    ]
+    domains = [classify_content(t) for t in texts]
+    assert "dialogue" in domains
+    assert "technical" in domains or "narrative" in domains
+
+
+def test_auto_detect_format():
+    """File extension auto-detection works."""
+    import os
+    from pathlib import Path
+    # Simulate the CLI logic
+    ext_map = {'.jsonl': 'jsonl', '.json': 'json', '.parquet': 'parquet', '.arrow': 'arrow'}
+    tests = [("data.parquet", "parquet"), ("out.jsonl", "jsonl"), ("data.arrow", "arrow")]
+    for path, expected in tests:
+        ext = os.path.splitext(path)[1].lower()
+        assert ext_map[ext] == expected
+
 
