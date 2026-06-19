@@ -151,20 +151,29 @@
         footer { text-align: center; padding: 2.5rem 0; color: var(--text-dim); font-size: 0.78rem; border-top: 1px solid var(--border); margin-top: 3rem; }
         footer a { color: var(--accent); text-decoration: none; }
         /* Debug log */
-        .debug-log { display: none; margin-top: 0.5rem; background: #0d0d15; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; max-height: 200px; overflow-y: auto; font-family: var(--font); font-size: 0.7rem; line-height: 1.5; color: var(--text-dim); position: relative; }
+        .debug-log { display: none; margin-top: 0.5rem; background: #0d0d15; border: 1px solid var(--border); border-radius: 8px; font-family: var(--font); font-size: 0.7rem; line-height: 1.5; color: var(--text-dim); position: relative; }
         .debug-log.visible { display: block; }
+        .debug-log-header { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); cursor: ns-resize; user-select: none; }
+        .debug-log-header span { font-size: 0.7rem; color: var(--text-dim); }
+        .debug-log-body { padding: 0.5rem 0.75rem; max-height: 160px; overflow-y: auto; transition: max-height 0.2s; }
+        .debug-log.maximized .debug-log-body { max-height: 70vh; }
         .debug-log .info { color: var(--blue); }
         .debug-log .ok { color: var(--green); }
         .debug-log .warn { color: var(--orange); }
         .debug-log .err { color: var(--red); }
         .debug-copy-btn {
-            position: absolute; top: 0.5rem; right: 0.5rem;
             background: var(--surface2); border: 1px solid var(--border);
-            color: var(--text-dim); border-radius: 4px; padding: 0.2rem 0.5rem;
-            font-size: 0.65rem; cursor: pointer; font-family: var(--font);
+            color: var(--text-dim); border-radius: 4px; padding: 0.15rem 0.4rem;
+            font-size: 0.6rem; cursor: pointer; font-family: var(--font);
             transition: all 0.15s;
         }
-        .debug-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .debug-copy-btn:hover, .debug-max-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .debug-max-btn {
+            background: transparent; border: none;
+            color: var(--text-dim); cursor: pointer; font-size: 0.75rem; padding: 0 0.25rem;
+            transition: color 0.15s;
+        }
+        .debug-max-btn:hover { color: var(--accent); }
         @media (max-width: 600px) {
             .container { padding: 1rem; }
             header { padding: 1.5rem 0; }
@@ -228,8 +237,14 @@
                     </div>
 
                     <div class="debug-log" id="debugLog">
-                        <button class="debug-copy-btn" onclick="copyDebug()" title="Copy debug log">📋 Copy</button>
-                        <div id="debugContent"></div>
+                        <div class="debug-log-header">
+                            <span>🐛 Debug log — <span id="debugCount">0</span> lines</span>
+                            <div style="display:flex;gap:0.3rem;">
+                                <button class="debug-max-btn" id="debugMaxBtn" onclick="toggleMaxDebug()" title="Maximize/minimize">⛶</button>
+                                <button class="debug-copy-btn" onclick="copyDebug()" title="Copy all">📋 Copy</button>
+                            </div>
+                        </div>
+                        <div class="debug-log-body" id="debugBody"></div>
                     </div>
 
                     <div class="results" id="results">
@@ -304,16 +319,21 @@ let pyodide = null, currentFile = null, currentResults = null, currentChunks = [
 function dbg(cls, msg) {
     const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
     debugLines.push({cls, msg: line});
-    const el = document.getElementById('debugContent');
+    const el = document.getElementById('debugBody');
     if (el) {
         el.innerHTML = debugLines.map(d => `<div class="${d.cls}">${escHtml(d.msg)}</div>`).join('');
         el.scrollTop = el.scrollHeight;
+        document.getElementById('debugCount').textContent = debugLines.length;
     }
     console.log(`[epub2dataset] ${msg}`);
 }
 function toggleDebug() {
+    document.getElementById('debugLog').classList.toggle('visible');
+}
+function toggleMaxDebug() {
     const el = document.getElementById('debugLog');
-    el.classList.toggle('visible');
+    el.classList.toggle('maximized');
+    document.getElementById('debugMaxBtn').textContent = el.classList.contains('maximized') ? '⛶' : '⛶';
 }
 function copyDebug() {
     const text = debugLines.map(d => d.msg).join('\n');
@@ -408,7 +428,7 @@ function clearAll() {
     document.getElementById('results').classList.remove('visible');
     document.getElementById('btnConvert').disabled = true;
     document.getElementById('btnClear').disabled = true;
-    debugLines = []; document.getElementById('debugContent').innerHTML = '';
+    debugLines = []; document.getElementById('debugBody').innerHTML = ''; document.getElementById('debugCount').textContent = '0';
     setStatus('idle', '✓ Ready — upload an EPUB');
 }
 
@@ -438,7 +458,7 @@ async function convert() {
     setStatus('loading', '⏳ [1/5] Reading EPUB file...');
     document.getElementById('results').classList.remove('visible');
     debugLines = [];
-    document.getElementById('debugContent').innerHTML = '';
+    document.getElementById('debugBody').innerHTML = ''; document.getElementById('debugCount').textContent = '0';
 
     const style = document.getElementById('styleSelect').value;
     const recipe = document.getElementById('recipeSelect').value;
